@@ -1,0 +1,44 @@
+jimi_sources = files(
+	'util.c',
+	'main.c',
+	'config.c',
+	'wayland.c',
+	'surface.c',
+	'client_buffer.c',
+	'transaction.c',
+	'linux_dmabuf.c',
+	'linux_drm_syncobj.c',
+	'subsurface.c',
+	'xdg_shell.c',
+	'layer_shell.c',
+	'input_panel.c',
+	'window.c',
+	'window_switcher.c',
+	'decoration.c',
+	'decoration_protocols.c',
+	'xdg_toplevel_icon.c',
+	'xdg_activation.c',
+	'xdg_dialog.c',
+	'icon_theme.c',
+	'viewporter.c',
+	'fractional_scale.c',
+	'presentation.c',
+	'tearing_control.c',
+	'color.c',
+	'color_management.c',
+	'foreign_toplevel.c',
+	'workspace.c',
+	'image_capture.c',
+	'scene.c',
+	'output.c',
+	'output_management.c',
+	'night_light.c',
+	'session_lock.c',
+	'idle.c',
+)
+
+subdir('backend')
+subdir('render')
+subdir('seat')
+subdir('xwayland')
+subdir('shaders')

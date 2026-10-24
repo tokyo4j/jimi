@@ -1,0 +1,398 @@
+# Example configuration file
+#
+# The values below are the defaults, so that this file as is changes nothing.
+# The settings without defaults are commented out. Unset keys keep the
+# defaults, but the lists of workspaces, bindings and mouse_bindings replace
+# the default ones.
+#
+# An invalid or missing file is reported, and the defaults are used instead
+# on startup. The reload action, SIGHUP or `jimi -r` applies the file again,
+# unless it is invalid. The backend and the autostart apply only on startup.
+backend:
+  xwayland: true
+  # Keeps Xwayland running without X11 clients. Otherwise it starts on the
+  # first connection, and stops 10 seconds after the last client is gone.
+  xwayland_persistence: false
+
+# Shell commands
+# autostart:
+#   - "waybar"
+#   - "swaybg -c '#808080'"
+
+# Unconfigured outputs use their preferred mode at scale 1, and are placed
+# right of the others.
+# outputs:
+#   - name: eDP-1
+#     # preferred, WIDTHxHEIGHT or WIDTHxHEIGHT@REFRESH
+#     mode: preferred
+#     scale: 1.25
+#     # normal, 90, 180, 270, flipped, flipped-90, flipped-180 or flipped-270
+#     transform: normal
+#     position: [0, 0]
+#
+#   - name: HDMI-A-1
+#     mode: "2560x1440@60"
+#     scale: 1.0
+#     position: [1536, 0]
+#     # Varies the refresh rate with the frame rate, up to that of the mode,
+#     # if the monitor supports it. Some monitors flicker with it.
+#     adaptive_sync: false
+#     # Shows BT.2020 colors encoded by PQ, if the monitor supports it, so
+#     # that HDR clients can show their full brightness and colors.
+#     hdr: false
+#     # The brightness of SDR white with HDR, in cd/m²
+#     sdr_luminance: 203
+
+# The first entry that matches an input device configures it. Unset keys keep
+# the defaults of libinput, and those that the device does not support are
+# ignored.
+# inputs:
+#   # As logged when the device is added
+#   - name: "Logitech G502 HERO Gaming Mouse"
+#     # flat or adaptive
+#     accel_profile: flat
+#     # From -1 to 1
+#     accel_speed: -0.3
+#     # none, two_finger, edge or on_button_down
+#     scroll_method: on_button_down
+#     # Left, Right, Middle, Side or Extra
+#     scroll_button: Side
+#
+#   # keyboard, pointer, touchpad, touchscreen or tablet
+#   - type: touchpad
+#     tap: true
+#     # lrm or lmr
+#     tap_button_map: lrm
+#     tap_drag: true
+#     # disabled, timeout or sticky
+#     tap_drag_lock: disabled
+#     # Drags with three or four fingers down: disabled, three_fingers or
+#     # four_fingers
+#     three_finger_drag: three_fingers
+#     natural_scroll: true
+#     disable_while_typing: true
+#     # none, button_areas or clickfinger
+#     click_method: clickfinger
+#     # Multiplies the scroll distance. Defaults to 1.
+#     scroll_factor: 0.5
+#     # enabled, disabled or disabled_on_external_mouse
+#     send_events: enabled
+#
+#   - type: pointer
+#     left_handed: false
+#     middle_emulation: false
+#
+#   - type: touchscreen
+#     # The output that absolute devices span. Defaults to the output at the
+#     # origin of the layout.
+#     map_to_output: eDP-1
+
+keyboard:
+  # null keeps the defaults of xkbcommon, which the XKB_DEFAULT_LAYOUT,
+  # XKB_DEFAULT_VARIANT and XKB_DEFAULT_OPTIONS environment variables set.
+  layout: null # e.g. us
+  variant: null # e.g. dvorak
+  options: null # e.g. ctrl:nocaps
+  repeat_rate: 25
+  repeat_delay: 600
+
+cursor:
+  # null for the default theme
+  theme: null # e.g. Breeze_Snow
+  size: 24
+
+desktop:
+  background_color: "#808080"
+
+# Warms the colors of the outputs at night, by the local time
+night_light:
+  # Of white at night, from 1667 to 6500 K. 6500 shows the colors as they
+  # are, which disables the night light.
+  temperature: 6500 # e.g. 4000
+  # Equal times keep the temperature all day.
+  start: "20:00"
+  end: "06:00"
+  # The minutes over which the temperature changes from the start and the
+  # end
+  transition: 30
+
+# Magnifies the area around the pointer on the output under it. The cursor is
+# drawn into the frames meanwhile, so that it is magnified too.
+magnifier:
+  # Magnifies the whole output instead of a lens around the pointer.
+  fullscreen: false
+  # Of the lens
+  size: [200, 200]
+  # Multiplies or divides the zoom by the zoom_in and zoom_out actions.
+  zoom_factor: 1.2
+
+windows:
+  # server or client, for the clients that do not prefer either
+  default_decoration: server
+  # Moving the pointer into a window focuses it, besides clicking.
+  focus_follows_mouse: true
+
+# Each window is on one of them, and all outputs show the same one. On reload,
+# the windows on the removed workspaces move to the last one.
+workspaces:
+  names: ["1", "2", "3", "4"]
+
+# A moved window snaps to the edge or the corner of the usable area of an
+# output that the pointer is released at.
+snapping:
+  # From the edges. 0 disables snapping.
+  edge_range: 10
+  # Along the edges, from the corners
+  corner_range: 50
+  # The dragged distance to restore a snapped or maximized window
+  unsnap_threshold: 10
+  # Shows where the window snaps to.
+  preview_color: "#3584e44d"
+
+decorations:
+  border_width: 2
+  titlebar_height: 28
+  # At the top corners
+  corner_radius: 8
+  # Grabs past the frame to resize it.
+  resize_margin: 8
+  # The distance past the frame over which its shadow fades out. 0 disables
+  # the shadows.
+  shadow_blur: 16
+  shadow_offset: [0, 4]
+  font: "Sans 11"
+  app_icon_size: 20
+  # Falls back to hicolor.
+  icon_theme: hicolor
+
+  colors:
+    # Of the window with the keyboard focus
+    active:
+      border: "#999999"
+      titlebar: "#f2f2f2"
+      title: "#141414"
+      shadow: "#00000066"
+    inactive:
+      border: "#bfbfbf"
+      titlebar: "#fafafa"
+      title: "#8c8c8c"
+      shadow: "#00000033"
+
+  titlebar:
+    # The items are listed left to right. Each may be listed at most once
+    # across both sides. The title is centered in the titlebar, but slides
+    # away from the items and is shortened only when it does not fit between
+    # them.
+    layout:
+      # app_icon, sticky, minimize, maximize or close
+      left: [app_icon, sticky]
+      right: [minimize, maximize, close]
+      show_title: true
+    button_width: 32
+    icon_size: 10
+    # Applied in order over the defaults, which they repeat; later rules win.
+    # A target matches any button (sticky, unstick, minimize, maximize,
+    # maximize_restore or close), state (normal, hovered or pressed) and
+    # window_state (active or inactive) it leaves out. Icons are SVG
+    # documents, which fill the square of icon_size in logical pixels in the
+    # middle of the button, and draw in icon_color with currentColor. With a
+    # viewBox of the icon size, 1px strokes are sharp at scale 1 where they
+    # run through the centers of the pixels.
+    buttons:
+      # A pin, whose head is filled while the window is sticky
+      - target: {button: sticky}
+        icon: |
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="-5 -5 10 10">
+            <circle cx="-0.5" cy="-1.5" r="3" fill="none"
+              stroke="currentColor"/>
+            <path d="M-0.5 1.5V4.5" stroke="currentColor"
+              stroke-linecap="square"/>
+          </svg>
+      - target: {button: unstick}
+        icon: |
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="-5 -5 10 10">
+            <circle cx="-0.5" cy="-1.5" r="3" fill="currentColor"
+              stroke="currentColor"/>
+            <path d="M-0.5 1.5V4.5" stroke="currentColor"
+              stroke-linecap="square"/>
+          </svg>
+      - target: {button: minimize}
+        icon: |
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="-5 -5 10 10">
+            <path d="M-4.5 -0.5H4.5" fill="none" stroke="currentColor"
+              stroke-linecap="square"/>
+          </svg>
+      - target: {button: maximize}
+        icon: |
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="-5 -5 10 10">
+            <path d="M-4.5 -4.5H4.5V4.5H-4.5Z" fill="none" stroke="currentColor"
+              stroke-linecap="square"/>
+          </svg>
+      # A square with another one behind it
+      - target: {button: maximize_restore}
+        icon: |
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="-5 -5 10 10">
+            <path d="M-4.5 -2.5H2.5V4.5H-4.5ZM-2.5 -2.5V-4.5H4.5V2.5H2.5"
+              fill="none" stroke="currentColor" stroke-linecap="square"/>
+          </svg>
+      - target: {button: close}
+        icon: |
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="-5 -5 10 10">
+            <path d="M-4.5 -4.5L4.5 4.5M4.5 -4.5L-4.5 4.5" fill="none"
+              stroke="currentColor" stroke-linecap="square"/>
+          </svg>
+      - target: {state: normal}
+        background_color: "#00000000"
+        icon_color: "#1f2629"
+      - target: {state: normal, window_state: inactive}
+        icon_color: "#8c8c8c"
+      - target: {state: hovered}
+        background_color: "#0000001a"
+        icon_color: "#1f2629"
+      - target: {state: pressed}
+        background_color: "#00000033"
+        icon_color: "#1f2629"
+      - target: {button: close, state: hovered}
+        background_color: "#c42b1c"
+        icon_color: "#ffffff"
+      - target: {button: close, state: pressed}
+        background_color: "#941f14"
+        icon_color: "#ffffff"
+
+# Shows the windows as a grid of items in the middle of the output under the
+# pointer while switching them.
+window_switcher:
+  # The largest size of the thumbnails, which keep the aspect ratio of the
+  # windows and are not enlarged.
+  thumbnail_size: [240, 160]
+  # Centered on the bottom edge of the thumbnail
+  app_icon_size: 48
+  font: "Sans 10"
+  # Below the app icon
+  title_height: 24
+  # Around the grid, and inside the items
+  padding: 10
+  # Of the items. The grid is rounded by this plus the padding.
+  corner_radius: 8
+  # Of the item of the selected window
+  border_width: 2
+  # Inside the frame of the selected window
+  outline_width: 3
+  # At the top-right corner of the thumbnail of the hovered item
+  close_button_size: 28
+  close_icon_size: 14
+
+  colors:
+    background: "#f2f2f2e6"
+    selected_background: "#0000001a"
+    selected_border: "#999999"
+    title: "#141414"
+    outline: "#3584e4"
+
+# Keys are keysyms, matched without the modifiers: Shift, Ctrl, Alt or Super.
+bindings:
+  - key: F4
+    modifiers: [Alt]
+    action: close
+
+  - key: Q
+    modifiers: [Super]
+    action: close
+
+  - key: P
+    modifiers: [Super]
+    action: quit
+
+  - key: S
+    modifiers: [Super]
+    action: exec
+    command: alacritty
+
+  - key: A
+    modifiers: [Super]
+    action: exec
+    command: fuzzel
+
+  - key: Tab
+    modifiers: [Super]
+    action: toggle_maximize
+
+  - key: F
+    modifiers: [Super]
+    action: toggle_fullscreen
+
+  # Switch windows until the modifiers are released.
+  - key: Tab
+    modifiers: [Alt]
+    action: next_window
+
+  - key: Tab
+    modifiers: [Alt, Shift]
+    action: previous_window
+
+  # The workspace is next, previous, or its number from 1. The next and
+  # previous ones stop at the last and the first one.
+  - key: Right
+    modifiers: [Super, Ctrl]
+    action: workspace
+    workspace: next
+
+  - key: Left
+    modifiers: [Super, Ctrl]
+    action: workspace
+    workspace: previous
+
+  # Without switching to the workspace
+  - key: Right
+    modifiers: [Super, Ctrl, Shift]
+    action: move_to_workspace
+    workspace: next
+
+  - key: Left
+    modifiers: [Super, Ctrl, Shift]
+    action: move_to_workspace
+    workspace: previous
+
+  # Magnifies 2x, or stops magnifying.
+  - key: 0
+    modifiers: [Super]
+    action: toggle_magnifier
+
+  # Zooming in starts magnifying, and zooming out to 1x stops.
+  - key: equal
+    modifiers: [Super]
+    action: zoom_in
+
+  - key: minus
+    modifiers: [Super]
+    action: zoom_out
+
+  # Applies the config file again.
+  # - key: R
+  #   modifiers: [Super, Shift]
+  #   action: reload
+
+  # Sticky windows are shown on all workspaces.
+  # - key: P
+  #   modifiers: [Super, Shift]
+  #   action: toggle_sticky
+
+  # - key: 1
+  #   modifiers: [Super]
+  #   action: workspace
+  #   workspace: 1
+
+  # - key: 1
+  #   modifiers: [Super, Shift]
+  #   action: move_to_workspace
+  #   workspace: 1
+
+# Pressing the button over a window starts the action on it: move or resize.
+mouse_bindings:
+  - button: Left
+    modifiers: [Super]
+    action: move
+
+  - button: Right
+    modifiers: [Super]
+    action: resize

@@ -1,0 +1,9 @@
+# Applies the udev rule to the existing /dev/uinput. The pacman hooks of systemd
+# reload the rules, sysctl.d and the units.
+post_install() {
+  udevadm trigger --name-match=uinput
+}
+
+post_upgrade() {
+  post_install
+}

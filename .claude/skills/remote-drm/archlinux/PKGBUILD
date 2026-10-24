@@ -1,0 +1,93 @@
+# Sets up the remote PC for remote.sh, for the user that builds the package.
+# Installed by `remote.sh setup`.
+
+pkgname=jimi-remote-drm
+pkgver=2
+pkgrel=1
+pkgdesc='Setup of the remote PC that jimi is run and debugged on'
+arch=('any')
+license=('MIT')
+depends=(
+  # Building jimi
+  'cairo'
+  'dbus'
+  'fontconfig'
+  'gcc'
+  'glib2'
+  'glslang'
+  'libdrm'
+  'libinput'
+  'libxcb'
+  'libxcursor'
+  'libxkbcommon'
+  'libyaml'
+  'librsvg'
+  'mesa'
+  'meson'
+  'pango'
+  'pixman'
+  'pkgconf'
+  'seatd'
+  'systemd-libs'
+  'vulkan-driver'
+  'vulkan-headers'
+  'vulkan-icd-loader'
+  'wayland'
+  'wayland-protocols'
+  'xcb-util-cursor'
+  'xcb-util-wm'
+  'xorg-xwayland'
+  # The commands of remote.sh
+  'drm-info'
+  'grim'
+  'python-evdev'
+  'sudo'
+  'vulkan-validation-layers'
+  'wayland-utils'
+  'wlr-randr'
+  # Comparing the CPU usage while capturing the screen
+  'labwc'
+  'obs-studio'
+  'perf'
+  'pipewire'
+  'sway'
+  'weston'
+  'wireplumber'
+  'xdg-desktop-portal'
+  'xdg-desktop-portal-gtk'
+  'xdg-desktop-portal-wlr'
+)
+install=jimi-remote-drm.install
+
+_user=$USER
+
+package() {
+  # jimi takes the devices of the logind session on tty1, which has to exist
+  # after boots.
+  install -Dm644 /dev/stdin \
+    "$pkgdir/usr/lib/systemd/system/getty@tty1.service.d/jimi-remote-drm.conf" <<EOF
+[Service]
+ExecStart=
+ExecStart=-/sbin/agetty -o '-p -f -- \\\\u' --noclear --autologin $_user %I \$TERM
+EOF
+
+  # For `remote.sh input`, the user of the session gets /dev/uinput.
+  install -Dm644 /dev/stdin \
+    "$pkgdir/usr/lib/udev/rules.d/60-jimi-remote-drm.rules" <<EOF
+KERNEL=="uinput", SUBSYSTEM=="misc", TAG+="uaccess", OPTIONS+="static_node=uinput"
+EOF
+
+  # For `remote.sh dmesg`, and `remote.sh perf-record` of the whole system
+  # with the kernel
+  install -Dm644 /dev/stdin \
+    "$pkgdir/usr/lib/sysctl.d/50-jimi-remote-drm.conf" <<EOF
+kernel.dmesg_restrict = 0
+kernel.perf_event_paranoid = -1
+EOF
+
+  # For `remote.sh drm-debug` and `remote.sh reboot`
+  install -dm750 "$pkgdir/etc/sudoers.d"
+  install -Dm440 /dev/stdin "$pkgdir/etc/sudoers.d/jimi-remote-drm" <<EOF
+$_user ALL=(root) NOPASSWD: /usr/bin/tee /sys/module/drm/parameters/debug, /usr/bin/systemctl reboot
+EOF
+}

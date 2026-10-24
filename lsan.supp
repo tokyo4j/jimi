@@ -1,0 +1,5 @@
+# Mesa's GBM and Vulkan drivers keep process-lifetime allocations made while
+# their DSOs are loaded. The Vulkan allocation has no symbol after the driver
+# is unloaded, so LeakSanitizer reports its frames as an unknown module.
+leak:gbm_create_device
+leak:<unknown module>

@@ -1,0 +1,59 @@
+# Builds the commit checked out in the enclosing repository:
+#   cd archlinux && makepkg -si
+
+pkgname=jimi
+pkgver=r233.3290614
+pkgrel=1
+pkgdesc='Minimalistic stacking Wayland compositor'
+arch=('x86_64')
+license=('MIT')
+depends=(
+  'cairo'
+  'dbus'
+  'fontconfig'
+  'glib2'
+  'libdisplay-info'
+  'libdrm'
+  'libinput'
+  'libxcb'
+  'libxcursor'
+  'libxkbcommon'
+  'libyaml'
+  'librsvg'
+  'mesa'
+  'pango'
+  'pixman'
+  'seatd'
+  'systemd-libs'
+  'vulkan-driver'
+  'vulkan-icd-loader'
+  'wayland'
+  'xcb-util-cursor'
+  'xcb-util-wm'
+)
+makedepends=(
+  'git'
+  'glslang'
+  'meson'
+  'vulkan-headers'
+  'wayland-protocols'
+)
+optdepends=('xorg-xwayland: X11 clients')
+source=("jimi::git+file://$startdir/..")
+sha256sums=('SKIP')
+
+pkgver() {
+  cd jimi
+  printf 'r%s.%s' "$(git rev-list --count HEAD)" "$(git rev-parse --short=7 HEAD)"
+}
+
+build() {
+  arch-meson jimi build
+  meson compile -C build
+}
+
+package() {
+  meson install -C build --destdir "$pkgdir"
+  install -Dm644 jimi/config.yaml -t "$pkgdir/usr/share/doc/jimi"
+  install -Dm644 jimi/LICENSE -t "$pkgdir/usr/share/licenses/jimi"
+}

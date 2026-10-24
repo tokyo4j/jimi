@@ -1,0 +1,1 @@
+{ "permissions": { "allow": ["Bash(.claude/skills/remote-drm/remote.sh:*)"] } }

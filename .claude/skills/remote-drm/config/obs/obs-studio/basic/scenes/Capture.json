@@ -1,0 +1,32 @@
+{
+  "name": "Capture",
+  "current_scene": "Scene",
+  "current_program_scene": "Scene",
+  "scene_order": [{"name": "Scene"}],
+  "sources": [
+    {
+      "id": "scene",
+      "versioned_id": "scene",
+      "name": "Scene",
+      "uuid": "6f3c2a1e-0000-4000-8000-000000000001",
+      "settings": {
+        "id_counter": 1,
+        "items": [
+          {
+            "name": "Screen",
+            "source_uuid": "6f3c2a1e-0000-4000-8000-000000000002",
+            "id": 1,
+            "visible": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "pipewire-desktop-capture-source",
+      "versioned_id": "pipewire-desktop-capture-source",
+      "name": "Screen",
+      "uuid": "6f3c2a1e-0000-4000-8000-000000000002",
+      "settings": {"ShowCursor": true}
+    }
+  ]
+}

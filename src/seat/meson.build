@@ -1,0 +1,18 @@
+jimi_sources += files(
+	'seat.c',
+	'keyboard.c',
+	'pointer.c',
+	'pointer_gestures.c',
+	'relative_pointer.c',
+	'pointer_constraints.c',
+	'touch.c',
+	'tablet.c',
+	'tablet_pad.c',
+	'data_device.c',
+	'primary_selection.c',
+	'data_control.c',
+	'text_input.c',
+	'input_method.c',
+	'virtual_keyboard.c',
+	'virtual_pointer.c',
+)

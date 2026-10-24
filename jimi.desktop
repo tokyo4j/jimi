@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=Jimi
+Comment=Minimalistic stacking Wayland compositor
+Exec=jimi
+Type=Application
+DesktopNames=jimi

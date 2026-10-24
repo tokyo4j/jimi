@@ -1,0 +1,5 @@
+/build
+/.cache
+/perf.data
+/perf.data.old
+/flamegraph.html
