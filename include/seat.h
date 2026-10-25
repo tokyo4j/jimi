@@ -20,7 +20,7 @@
 #define SNAP_PREVIEW_DELAY_MS 100
 #define DOUBLE_CLICK_TIME_MS 400
 
-struct binding;
+struct key_binding;
 struct libinput_device;
 struct libinput_device_group;
 struct surface;
@@ -191,7 +191,7 @@ struct keyboard {
 	struct keyboard_source *source;
 	// The binding of the pressed key runs again by the repeat info of
 	// wl_keyboard, until any key is pressed or released.
-	const struct binding *repeat_binding;
+	const struct key_binding *repeat_binding;
 	struct wl_event_source *repeat_timer;
 };
 

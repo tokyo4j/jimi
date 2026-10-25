@@ -26,7 +26,7 @@
 	(float)((rgba) & 0xff) / 255.0f, \
 }
 
-static const struct binding default_bindings[] = {
+static const struct key_binding default_key_bindings[] = {
 	{.keysym = XKB_KEY_F4, .modifiers = MODIFIER_ALT, .action = ACTION_CLOSE},
 	{.keysym = XKB_KEY_q, .modifiers = MODIFIER_SUPER, .action = ACTION_CLOSE},
 	{.keysym = XKB_KEY_p, .modifiers = MODIFIER_SUPER, .action = ACTION_QUIT},
@@ -1356,7 +1356,7 @@ parse_action(yaml_node_t *node)
 
 // "next", "previous", or the number of the workspace from 1
 static int
-parse_binding_workspace(yaml_node_t *node)
+parse_key_binding_workspace(yaml_node_t *node)
 {
 	const char *value = parse_string(node);
 	if (strcmp(value, "next") == 0) {
@@ -1369,9 +1369,9 @@ parse_binding_workspace(yaml_node_t *node)
 }
 
 static void
-parse_binding(yaml_node_t *node, struct binding *binding)
+parse_key_binding(yaml_node_t *node, struct key_binding *binding)
 {
-	*binding = (struct binding){.keysym = XKB_KEY_NoSymbol};
+	*binding = (struct key_binding){.keysym = XKB_KEY_NoSymbol};
 	bool has_action = false;
 	bool has_workspace = false;
 	if (!expect_mapping(node)) {
@@ -1396,17 +1396,17 @@ parse_binding(yaml_node_t *node, struct binding *binding)
 		} else if (strcmp(name, "command") == 0) {
 			binding->command = parse_string(value);
 		} else if (strcmp(name, "workspace") == 0) {
-			binding->workspace = parse_binding_workspace(value);
+			binding->workspace = parse_key_binding_workspace(value);
 			has_workspace = true;
 		} else {
 			fail(key, "unknown key %s", name);
 		}
 	}
 	if (binding->keysym == XKB_KEY_NoSymbol) {
-		fail(node, "the binding has no key");
+		fail(node, "the key binding has no key");
 	}
 	if (!has_action) {
-		fail(node, "the binding has no action");
+		fail(node, "the key binding has no action");
 	}
 	if (binding->action == ACTION_EXEC && !binding->command) {
 		fail(node, "the exec action has no command");
@@ -1419,14 +1419,15 @@ parse_binding(yaml_node_t *node, struct binding *binding)
 }
 
 static void
-parse_bindings(yaml_node_t *node)
+parse_key_bindings(yaml_node_t *node)
 {
-	free(config.bindings);
-	config.nr_bindings = sequence_length(node);
-	config.bindings = calloc(config.nr_bindings, sizeof(*config.bindings));
-	assert(config.bindings || config.nr_bindings == 0);
-	for (size_t i = 0; i < config.nr_bindings; i++) {
-		parse_binding(sequence_item(node, i), &config.bindings[i]);
+	free(config.key_bindings);
+	config.nr_key_bindings = sequence_length(node);
+	config.key_bindings = calloc(config.nr_key_bindings,
+		sizeof(*config.key_bindings));
+	assert(config.key_bindings || config.nr_key_bindings == 0);
+	for (size_t i = 0; i < config.nr_key_bindings; i++) {
+		parse_key_binding(sequence_item(node, i), &config.key_bindings[i]);
 	}
 }
 
@@ -1526,8 +1527,8 @@ parse_root(yaml_node_t *node)
 			parse_decorations(value);
 		} else if (strcmp(name, "window_switcher") == 0) {
 			parse_window_switcher(value);
-		} else if (strcmp(name, "bindings") == 0) {
-			parse_bindings(value);
+		} else if (strcmp(name, "key_bindings") == 0) {
+			parse_key_bindings(value);
 		} else if (strcmp(name, "mouse_bindings") == 0) {
 			parse_mouse_bindings(value);
 		} else {
@@ -1544,10 +1545,11 @@ set_defaults(void)
 	config = defaults;
 	config.path = path;
 	// Copied to be freed like the configured bindings which replace them.
-	config.nr_bindings = ARRAY_LEN(default_bindings);
-	config.bindings = malloc(sizeof(default_bindings));
-	assert(config.bindings);
-	memcpy(config.bindings, default_bindings, sizeof(default_bindings));
+	config.nr_key_bindings = ARRAY_LEN(default_key_bindings);
+	config.key_bindings = malloc(sizeof(default_key_bindings));
+	assert(config.key_bindings);
+	memcpy(config.key_bindings, default_key_bindings,
+		sizeof(default_key_bindings));
 	config.nr_mouse_bindings = ARRAY_LEN(default_mouse_bindings);
 	config.mouse_bindings = malloc(sizeof(default_mouse_bindings));
 	assert(config.mouse_bindings);
@@ -1600,12 +1602,12 @@ load(void)
 		return false;
 	}
 	// Checked once both are parsed, in either order.
-	for (size_t i = 0; i < config.nr_bindings; i++) {
-		const struct binding *binding = &config.bindings[i];
+	for (size_t i = 0; i < config.nr_key_bindings; i++) {
+		const struct key_binding *binding = &config.key_bindings[i];
 		if ((binding->action == ACTION_WORKSPACE
 				|| binding->action == ACTION_MOVE_TO_WORKSPACE)
 				&& binding->workspace >= (int)config.workspaces.nr_names) {
-			fprintf(stderr, "%s: a binding goes to workspace %d of %zu\n",
+			fprintf(stderr, "%s: a key binding goes to workspace %d of %zu\n",
 				config.path, binding->workspace + 1, config.workspaces.nr_names);
 			return false;
 		}
@@ -1620,7 +1622,7 @@ free_config(struct config *c)
 	free(c->autostart);
 	free(c->outputs);
 	free(c->inputs);
-	free(c->bindings);
+	free(c->key_bindings);
 	free(c->mouse_bindings);
 	free(c->workspaces.names);
 	yaml_document_delete(c->document);

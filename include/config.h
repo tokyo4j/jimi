@@ -36,14 +36,14 @@ enum action {
 	ACTION_ZOOM_OUT,
 };
 
-// The workspaces of bindings, besides the indices of config.workspaces.names.
-// They stop at the first and the last workspace.
+// The workspaces of key bindings, besides the indices of
+// config.workspaces.names. They stop at the first and the last workspace.
 enum {
 	WORKSPACE_NEXT = -1,
 	WORKSPACE_PREVIOUS = -2,
 };
 
-struct binding {
+struct key_binding {
 	// Lowercase. Matched against the keysym of the key without modifiers.
 	uint32_t keysym;
 	uint32_t modifiers; // enum modifier, all of which must be pressed
@@ -284,8 +284,8 @@ struct config {
 		int height;
 		double zoom_factor; // Greater than 1
 	} magnifier;
-	struct binding *bindings;
-	size_t nr_bindings;
+	struct key_binding *key_bindings;
+	size_t nr_key_bindings;
 	struct mouse_binding *mouse_bindings;
 	size_t nr_mouse_bindings;
 };

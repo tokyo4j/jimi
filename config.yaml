@@ -2,8 +2,8 @@
 #
 # The values below are the defaults, so that this file as is changes nothing.
 # The settings without defaults are commented out. Unset keys keep the
-# defaults, but the lists of workspaces, bindings and mouse_bindings replace
-# the default ones.
+# defaults, but the lists of workspaces, key_bindings and mouse_bindings
+# replace the default ones.
 #
 # An invalid or missing file is reported, and the defaults are used instead
 # on startup. The reload action, SIGHUP or `jimi -r` applies the file again,
@@ -290,7 +290,7 @@ window_switcher:
     outline: "#3584e4"
 
 # Keys are keysyms, matched without the modifiers: Shift, Ctrl, Alt or Super.
-bindings:
+key_bindings:
   - key: F4
     modifiers: [Alt]
     action: close

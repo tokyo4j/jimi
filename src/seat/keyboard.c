@@ -333,12 +333,12 @@ consumed_modifiers(xkb_keycode_t keycode)
 	return modifiers;
 }
 
-static const struct binding *
+static const struct key_binding *
 find_binding_by_keysyms(const xkb_keysym_t *keysyms, int nr_keysyms,
 		uint32_t modifiers)
 {
-	for (size_t i = 0; i < config.nr_bindings; i++) {
-		const struct binding *binding = &config.bindings[i];
+	for (size_t i = 0; i < config.nr_key_bindings; i++) {
+		const struct key_binding *binding = &config.key_bindings[i];
 		if (binding->modifiers != modifiers) {
 			continue;
 		}
@@ -355,14 +355,14 @@ find_binding_by_keysyms(const xkb_keysym_t *keysyms, int nr_keysyms,
 // so that Super+Shift+minus matches Super+equal on a jp layout. Otherwise,
 // they match the keysym of the key without modifiers, so that Shift does not
 // change it, like Alt+Shift+Tab, which produces ISO_Left_Tab.
-static const struct binding *
+static const struct key_binding *
 find_binding(uint32_t key)
 {
 	struct xkb_state *state = core.seat.keyboard.state;
 	uint32_t modifiers = keyboard_pressed_modifiers();
 	const xkb_keysym_t *keysyms;
 	int nr_keysyms = xkb_state_key_get_syms(state, key + 8, &keysyms);
-	const struct binding *binding = find_binding_by_keysyms(keysyms,
+	const struct key_binding *binding = find_binding_by_keysyms(keysyms,
 		nr_keysyms, modifiers & ~consumed_modifiers(key + 8));
 	if (binding) {
 		return binding;
@@ -375,7 +375,7 @@ find_binding(uint32_t key)
 
 // The next and previous workspaces stop at the first and the last one.
 static int
-binding_workspace(const struct binding *binding)
+binding_workspace(const struct key_binding *binding)
 {
 	int last = (int)config.workspaces.nr_names - 1;
 	switch (binding->workspace) {
@@ -388,7 +388,7 @@ binding_workspace(const struct binding *binding)
 }
 
 static void
-run_binding(const struct binding *binding)
+run_binding(const struct key_binding *binding)
 {
 	struct window *window = keyboard_active_window();
 	switch (binding->action) {
@@ -470,7 +470,7 @@ handle_repeat_timer(void *data)
 // Bindings repeat like the keys clients repeat, unless the keymap does not
 // repeat the key.
 static void
-start_repeating_binding(const struct binding *binding, uint32_t key)
+start_repeating_binding(const struct key_binding *binding, uint32_t key)
 {
 	struct keyboard *keyboard = &core.seat.keyboard;
 	if (config.keyboard.repeat_rate > 0
@@ -648,7 +648,7 @@ keyboard_handle_key(uint32_t time, uint32_t key, bool pressed)
 	xkb_keysym_t keysym = pressed
 		? xkb_state_key_get_one_sym(core.seat.keyboard.state, key + 8)
 		: XKB_KEY_NoSymbol;
-	const struct binding *binding = pressed && !core.session_lock.locked
+	const struct key_binding *binding = pressed && !core.session_lock.locked
 		? find_binding(key) : NULL;
 	if (keysym == XKB_KEY_Escape && core.window_switcher.selected) {
 		window_switcher_cancel();
