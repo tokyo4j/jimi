@@ -19,6 +19,7 @@ protocols = {
 	'wlr-layer-shell-unstable-v1': 'wlr-layer-shell-unstable-v1.xml',
 	'ext-foreign-toplevel-list-v1': protocol_dir / 'staging/ext-foreign-toplevel-list/ext-foreign-toplevel-list-v1.xml',
 	'wlr-foreign-toplevel-management-unstable-v1': 'wlr-foreign-toplevel-management-unstable-v1.xml',
+	'xfce-foreign-toplevel-management-private-v1': 'xfce-foreign-toplevel-management-private-v1.xml',
 	'ext-workspace-v1': protocol_dir / 'staging/ext-workspace/ext-workspace-v1.xml',
 	'wlr-output-management-unstable-v1': 'wlr-output-management-unstable-v1.xml',
 	'xwayland-shell-v1': protocol_dir / 'staging/xwayland-shell/xwayland-shell-v1.xml',

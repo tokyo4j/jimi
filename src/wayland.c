@@ -15,6 +15,7 @@
 #include "wlr-layer-shell-unstable-v1-protocol.h"
 #include "ext-foreign-toplevel-list-v1-protocol.h"
 #include "wlr-foreign-toplevel-management-unstable-v1-protocol.h"
+#include "xfce-foreign-toplevel-management-private-v1-protocol.h"
 #include "ext-workspace-v1-protocol.h"
 #include "wlr-output-management-unstable-v1-protocol.h"
 #include "viewporter-protocol.h"
@@ -287,6 +288,9 @@ wayland_init(void)
 	assert(wl_global_create(core.display,
 		&zwlr_foreign_toplevel_manager_v1_interface, 3, NULL,
 		wayland_bind_wlr_foreign_toplevel_manager));
+	assert(wl_global_create(core.display,
+		&xfce_foreign_toplevel_manager_private_v1_interface, 1, NULL,
+		wayland_bind_xfce_foreign_toplevel_manager));
 	assert(wl_global_create(core.display, &ext_workspace_manager_v1_interface,
 		1, NULL, wayland_bind_ext_workspace_manager));
 	assert(wl_global_create(core.display, &zxdg_output_manager_v1_interface, 3, NULL,

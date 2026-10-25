@@ -75,6 +75,8 @@ void wayland_bind_ext_foreign_toplevel_list(struct wl_client *client,
 	void *data, uint32_t version, uint32_t id);
 void wayland_bind_wlr_foreign_toplevel_manager(struct wl_client *client,
 	void *data, uint32_t version, uint32_t id);
+void wayland_bind_xfce_foreign_toplevel_manager(struct wl_client *client,
+	void *data, uint32_t version, uint32_t id);
 void wayland_bind_ext_workspace_manager(struct wl_client *client, void *data,
 	uint32_t version, uint32_t id);
 void wayland_bind_session_lock_manager(struct wl_client *client, void *data,

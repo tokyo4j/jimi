@@ -187,6 +187,8 @@ struct window {
 		struct wl_list link; // core.foreign_toplevel.windows
 		struct wl_list ext_handles; // ext_foreign_toplevel_handle_v1 resource links
 		struct wl_list wlr_handles; // zwlr_foreign_toplevel_handle_v1 resource links
+		// xfce_foreign_toplevel_handle_v1 resource links
+		struct wl_list xfce_handles;
 		uint64_t identifier; // Unique to each mapping.
 	} foreign;
 	// Image capture of the mapped window.
@@ -289,15 +291,20 @@ void foreign_toplevel_update_title(struct window *window);
 void foreign_toplevel_update_app_id(struct window *window);
 void foreign_toplevel_update_state(struct window *window);
 void foreign_toplevel_update_parent(struct window *window);
+void foreign_toplevel_update_workspace(struct window *window, int old_workspace);
+void foreign_toplevel_update_icon(struct window *window);
 void foreign_toplevel_update_output(struct window *window,
 	struct output *old_output);
 void foreign_toplevel_output_bind(struct output *output,
 	struct wl_resource *resource);
+void foreign_toplevel_workspaces_bind(struct wl_client *client);
 
 void workspace_show(int workspace);
 void workspace_switch(int workspace);
 void workspaces_reload(size_t nr_old);
 void workspaces_output_bind(struct output *output, struct wl_resource *resource);
 void workspaces_output_disable(struct output *output);
+int workspace_from_handle(struct wl_resource *handle);
+struct wl_resource *workspace_handle(struct wl_client *client, int workspace);
 
 #endif

@@ -51,10 +51,12 @@ set_family_workspace(struct window *window, int workspace)
 	}
 	struct window *iter;
 	wl_list_for_each(iter, &core.windows, link) {
-		if (window_has_ancestor(iter, root)) {
+		if (window_has_ancestor(iter, root) && iter->workspace != workspace) {
+			int old_workspace = iter->workspace;
 			iter->workspace = workspace;
 			// The sticky button shows whether the window is sticky.
 			decoration_update_buttons(iter);
+			foreign_toplevel_update_workspace(iter, old_workspace);
 		}
 	}
 }
@@ -211,6 +213,28 @@ handle_workspace(struct workspace_manager *manager, struct wl_resource *handle)
 	return -1;
 }
 
+// The workspace of an ext_workspace_handle_v1 resource, or -1 if it is inert.
+int
+workspace_from_handle(struct wl_resource *handle)
+{
+	struct workspace_manager *manager = wl_resource_get_user_data(handle);
+	return manager ? handle_workspace(manager, handle) : -1;
+}
+
+// The handle of the workspace from the latest manager of the client, or NULL
+// if the client has none.
+struct wl_resource *
+workspace_handle(struct wl_client *client, int workspace)
+{
+	struct workspace_manager *manager;
+	wl_list_for_each_reverse(manager, &core.workspaces.managers, link) {
+		if (wl_resource_get_client(manager->resource) == client) {
+			return manager->handles[workspace];
+		}
+	}
+	return NULL;
+}
+
 static void
 handle_activate_req(struct wl_client *client, struct wl_resource *resource)
 {
@@ -333,9 +357,14 @@ workspaces_reload(size_t nr_old)
 {
 	size_t nr = config.workspaces.nr_names;
 	int last = (int)nr - 1;
+	// Before the clients get the removed workspaces, so that the windows
+	// leave them first. Unmapped windows get a workspace when they map, and
+	// may have a parent on another one.
 	struct window *window;
 	wl_list_for_each(window, &core.windows, link) {
-		window->workspace = MIN(window->workspace, last);
+		if (window->mapped && window->workspace > last) {
+			set_family_workspace(window, last);
+		}
 	}
 	struct workspace_manager *manager;
 	wl_list_for_each(manager, &core.workspaces.managers, link) {
@@ -401,4 +430,5 @@ wayland_bind_ext_workspace_manager(struct wl_client *client, void *data,
 		manager->handles[i] = handle_create(manager, (int)i);
 	}
 	ext_workspace_manager_v1_send_done(manager->resource);
+	foreign_toplevel_workspaces_bind(client);
 }

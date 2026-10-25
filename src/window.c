@@ -50,6 +50,7 @@ window_init(struct window *window, enum window_type type)
 	wl_list_init(&window->foreign.link);
 	wl_list_init(&window->foreign.ext_handles);
 	wl_list_init(&window->foreign.wlr_handles);
+	wl_list_init(&window->foreign.xfce_handles);
 	wl_list_init(&window->capture.sources);
 	wl_list_init(&window->capture.sessions);
 	list_append(&core.windows, &window->link);
@@ -784,6 +785,7 @@ window_set_icon(struct window *window, struct toplevel_icon *icon)
 	window->icon = toplevel_icon_ref(icon);
 	decoration_update_icon(window);
 	window_switcher_update_icon(window);
+	foreign_toplevel_update_icon(window);
 }
 
 // The icon of the size in logical pixels, rendered for the scale, or NULL if
