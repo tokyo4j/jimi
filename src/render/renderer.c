@@ -383,6 +383,36 @@ draw_region(const struct render_pass *pass, const struct box *box,
 	}
 }
 
+// Binds the views of the texture with its sampler. RGB textures leave the
+// chroma binding unused, with their view.
+static void
+push_texture_descriptors(VkCommandBuffer cmd, struct texture *texture)
+{
+	struct vk *vk = &core.vk;
+	VkImageView views[TEXTURE_BINDINGS] = {
+		texture->view,
+		texture->chroma_view ? texture->chroma_view : texture->view,
+	};
+	VkDescriptorImageInfo image_infos[TEXTURE_BINDINGS];
+	VkWriteDescriptorSet writes[TEXTURE_BINDINGS];
+	for (uint32_t i = 0; i < TEXTURE_BINDINGS; i++) {
+		image_infos[i] = (VkDescriptorImageInfo){
+			.sampler = texture->sampler,
+			.imageView = views[i],
+			.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+		};
+		writes[i] = (VkWriteDescriptorSet){
+			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+			.dstBinding = i,
+			.descriptorCount = 1,
+			.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+			.pImageInfo = &image_infos[i],
+		};
+	}
+	vk->api.vkCmdPushDescriptorSetKHR(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+		vk->texture_pipe_layout, 0, TEXTURE_BINDINGS, writes);
+}
+
 // Draws the source, in the unit square of the transformed texture, into the
 // region within the box in pixels of the image. The colors of the texture are
 // in the image description. Opaque textures are drawn without their alpha
@@ -459,8 +489,7 @@ draw_texture(const struct render_pass *pass, struct texture *texture,
 	vk->api.vkCmdSetColorBlendEnableEXT(pass->cmd, 0, 1, &blend);
 	vkCmdBindPipeline(pass->cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
 		vulkan_pipelines(pass->format->vk)->texture);
-	vkCmdBindDescriptorSets(pass->cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-		vk->texture_pipe_layout, 0, 1, &texture->descriptor_set, 0, NULL);
+	push_texture_descriptors(pass->cmd, texture);
 	draw_region(pass, box, region);
 }
 
@@ -1310,7 +1339,7 @@ magnifier_texture(uint32_t width, uint32_t height, const struct pixel_format *fo
 			|| texture->format != format) {
 		texture_destroy(texture);
 		texture = texture_create(width, height, format->drm);
-		texture_set_sampler(texture, core.vk.nearest_sampler);
+		texture->sampler = core.vk.nearest_sampler;
 		core.magnifier.texture = texture;
 	}
 	return texture;

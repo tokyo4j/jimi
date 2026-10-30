@@ -75,8 +75,8 @@ struct vk {
 	struct texture_upload *upload;
 	struct wl_list uploads; // texture_upload.link, submitted, by point
 	struct wl_list staging_buffers; // staging_buffer.link, unused
+	// Of the textures, pushed with each draw
 	VkDescriptorSetLayout descriptor_set_layout;
-	struct wl_list descriptor_pools; // descriptor_pool.link
 	VkSampler sampler; // Linear
 	VkSampler nearest_sampler;
 	VkPipelineLayout texture_pipe_layout;
@@ -88,6 +88,7 @@ struct vk {
 		PFN_vkGetMemoryFdPropertiesKHR vkGetMemoryFdPropertiesKHR;
 		PFN_vkGetSemaphoreFdKHR vkGetSemaphoreFdKHR;
 		PFN_vkCmdSetColorBlendEnableEXT vkCmdSetColorBlendEnableEXT;
+		PFN_vkCmdPushDescriptorSetKHR vkCmdPushDescriptorSetKHR;
 	} api;
 	// Each queue submission signals the next point when it completes.
 	VkSemaphore timeline;

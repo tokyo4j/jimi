@@ -7,15 +7,8 @@
 #include "output.h"
 #include "surface.h"
 
-#define DESCRIPTOR_POOL_SIZE 128
 // The texture, or the luma and the chroma planes of YCbCr
 #define TEXTURE_BINDINGS 2
-
-struct descriptor_pool {
-	struct wl_list link; // vk.descriptor_pools
-	VkDescriptorPool handle;
-	uint32_t available;
-};
 
 struct texture {
 	VkImage image;
@@ -23,8 +16,7 @@ struct texture {
 	uint32_t nr_memories;
 	VkImageView view; // Of the luma plane of YCbCr
 	VkImageView chroma_view; // Of YCbCr, or VK_NULL_HANDLE
-	struct descriptor_pool *descriptor_pool;
-	VkDescriptorSet descriptor_set;
+	VkSampler sampler; // vk.sampler unless the owner picks another one
 	uint32_t width;
 	uint32_t height;
 	const struct pixel_format *format;
@@ -107,8 +99,6 @@ uint32_t vulkan_find_memory_type(VkPhysicalDevice phys, uint32_t bits,
 	VkMemoryPropertyFlags flags);
 void vulkan_create_buffer(VkDeviceSize size, VkBufferUsageFlags usage,
 	VkMemoryPropertyFlags flags, VkBuffer *buffer, VkDeviceMemory *memory);
-struct descriptor_pool *vulkan_get_or_create_descriptor_pool(void);
-VkDescriptorSet vulkan_allocate_descriptor_set(struct descriptor_pool *pool);
 void vulkan_submit(VkCommandBuffer cmd, VkFence fence);
 int vulkan_dup_sync_file(void);
 uint64_t renderer_completed_point(void);
@@ -147,6 +137,5 @@ VkCommandBuffer texture_uploads_end(uint64_t point);
 void texture_uploads_submit(void);
 void texture_uploads_fini(void);
 void textures_collect_garbage(void);
-void texture_set_sampler(struct texture *tex, VkSampler sampler);
 
 #endif

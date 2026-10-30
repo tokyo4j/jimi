@@ -184,11 +184,6 @@ static void
 texture_free(struct texture *tex)
 {
 	struct vk *vk = &core.vk;
-	if (tex->descriptor_set) {
-		assert(vkFreeDescriptorSets(vk->dev, tex->descriptor_pool->handle, 1,
-			&tex->descriptor_set) == VK_SUCCESS);
-		tex->descriptor_pool->available++;
-	}
 	if (tex->view) {
 		vkDestroyImageView(vk->dev, tex->view, NULL);
 	}
@@ -245,45 +240,6 @@ textures_collect_garbage(void)
 	}
 }
 
-// Samples the texture with the sampler, which the GPU must not be doing with
-// the previous one. RGB textures leave the chroma binding unused, with their
-// view.
-void
-texture_set_sampler(struct texture *tex, VkSampler sampler)
-{
-	VkImageView views[TEXTURE_BINDINGS] = {
-		tex->view,
-		tex->chroma_view ? tex->chroma_view : tex->view,
-	};
-	VkDescriptorImageInfo image_infos[TEXTURE_BINDINGS];
-	VkWriteDescriptorSet writes[TEXTURE_BINDINGS];
-	for (uint32_t i = 0; i < TEXTURE_BINDINGS; i++) {
-		image_infos[i] = (VkDescriptorImageInfo){
-			.sampler = sampler,
-			.imageView = views[i],
-			.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-		};
-		writes[i] = (VkWriteDescriptorSet){
-			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-			.dstSet = tex->descriptor_set,
-			.dstBinding = i,
-			.descriptorCount = 1,
-			.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-			.pImageInfo = &image_infos[i],
-		};
-	}
-	vkUpdateDescriptorSets(core.vk.dev, TEXTURE_BINDINGS, writes, 0, NULL);
-}
-
-// Sampled linearly
-static void
-texture_create_descriptor(struct texture *tex)
-{
-	tex->descriptor_pool = vulkan_get_or_create_descriptor_pool();
-	tex->descriptor_set = vulkan_allocate_descriptor_set(tex->descriptor_pool);
-	texture_set_sampler(tex, core.vk.sampler);
-}
-
 // A texture of the DRM format, whose contents are undefined until
 // texture_write_pixels(), or until the renderer draws into it.
 struct texture *
@@ -321,7 +277,7 @@ texture_create(uint32_t w, uint32_t h, uint32_t format)
 		== VK_SUCCESS);
 	tex->view = vulkan_create_image_view(tex->image, tex->format->vk,
 		VK_IMAGE_ASPECT_COLOR_BIT);
-	texture_create_descriptor(tex);
+	tex->sampler = vk->sampler;
 	tex->width = w;
 	tex->height = h;
 	return tex;
@@ -520,7 +476,7 @@ texture_import_dmabuf(const struct dmabuf_attributes *attributes)
 		tex->view = vulkan_create_image_view(tex->image, tex->format->vk,
 			VK_IMAGE_ASPECT_COLOR_BIT);
 	}
-	texture_create_descriptor(tex);
+	tex->sampler = vk->sampler;
 	tex->width = attributes->width;
 	tex->height = attributes->height;
 	tex->dmabuf = true;

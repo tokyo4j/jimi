@@ -1,7 +1,6 @@
 #include <assert.h>
 #include <fcntl.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/sysmacros.h>
@@ -67,54 +66,6 @@ has_ext(const VkExtensionProperties *exts, uint32_t count, const char *name)
 		}
 	}
 	return false;
-}
-
-struct descriptor_pool *
-vulkan_get_or_create_descriptor_pool(void)
-{
-	struct vk *vk = &core.vk;
-	struct descriptor_pool *pool;
-	wl_list_for_each(pool, &vk->descriptor_pools, link) {
-		if (pool->available > 0) {
-			return pool;
-		}
-	}
-
-	pool = calloc(1, sizeof(*pool));
-	assert(pool);
-	VkDescriptorPoolSize pool_size = {
-		.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-		.descriptorCount = DESCRIPTOR_POOL_SIZE * TEXTURE_BINDINGS,
-	};
-	VkDescriptorPoolCreateInfo dpci = {
-		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-		.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
-		.maxSets = DESCRIPTOR_POOL_SIZE,
-		.poolSizeCount = 1,
-		.pPoolSizes = &pool_size,
-	};
-	// TODO: handle allocation failures
-	assert(vkCreateDescriptorPool(vk->dev, &dpci, NULL, &pool->handle)
-		== VK_SUCCESS);
-	pool->available = DESCRIPTOR_POOL_SIZE;
-	list_append(&vk->descriptor_pools, &pool->link);
-	return pool;
-}
-
-VkDescriptorSet
-vulkan_allocate_descriptor_set(struct descriptor_pool *pool)
-{
-	struct vk *vk = &core.vk;
-	VkDescriptorSet descriptor_set;
-	VkDescriptorSetAllocateInfo dsai = {
-		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-		.descriptorPool = pool->handle,
-		.descriptorSetCount = 1,
-		.pSetLayouts = &vk->descriptor_set_layout,
-	};
-	assert(vkAllocateDescriptorSets(vk->dev, &dsai, &descriptor_set) == VK_SUCCESS);
-	pool->available--;
-	return descriptor_set;
 }
 
 // Submits the texture uploads recorded since the last submission, then the
@@ -255,6 +206,7 @@ init_device(void)
 		VK_EXT_QUEUE_FAMILY_FOREIGN_EXTENSION_NAME,
 		VK_EXT_EXTENDED_DYNAMIC_STATE_3_EXTENSION_NAME,
 		VK_KHR_GLOBAL_PRIORITY_EXTENSION_NAME,
+		VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME,
 	};
 
 	for (uint32_t i = 0; i < nr_phys; i++) {
@@ -385,6 +337,10 @@ init_device(void)
 		(PFN_vkCmdSetColorBlendEnableEXT)vkGetDeviceProcAddr(vk->dev,
 			"vkCmdSetColorBlendEnableEXT");
 	assert(vk->api.vkCmdSetColorBlendEnableEXT);
+	vk->api.vkCmdPushDescriptorSetKHR =
+		(PFN_vkCmdPushDescriptorSetKHR)vkGetDeviceProcAddr(vk->dev,
+			"vkCmdPushDescriptorSetKHR");
+	assert(vk->api.vkCmdPushDescriptorSetKHR);
 
 	VkCommandPoolCreateInfo cpci = {
 		.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
@@ -490,6 +446,7 @@ init_pipelines(void)
 	}
 	VkDescriptorSetLayoutCreateInfo dlci = {
 		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+		.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR,
 		.bindingCount = TEXTURE_BINDINGS,
 		.pBindings = bindings,
 	};
@@ -634,7 +591,6 @@ void
 vulkan_init(void)
 {
 	struct vk *vk = &core.vk;
-	wl_list_init(&vk->descriptor_pools);
 	wl_list_init(&vk->texture_garbage);
 	wl_list_init(&vk->uploads);
 	wl_list_init(&vk->staging_buffers);
@@ -658,12 +614,6 @@ vulkan_fini(void)
 	vkDestroyPipelineLayout(vk->dev, vk->shadow_pipe_layout, NULL);
 	vkDestroySampler(vk->dev, vk->sampler, NULL);
 	vkDestroySampler(vk->dev, vk->nearest_sampler, NULL);
-	struct descriptor_pool *pool, *tmp;
-	wl_list_for_each_safe(pool, tmp, &vk->descriptor_pools, link) {
-		wl_list_remove(&pool->link);
-		vkDestroyDescriptorPool(vk->dev, pool->handle, NULL);
-		free(pool);
-	}
 	vkDestroyDescriptorSetLayout(vk->dev, vk->descriptor_set_layout, NULL);
 	vkDestroySemaphore(vk->dev, vk->timeline, NULL);
 	vkDestroySemaphore(vk->dev, vk->submitted, NULL);
