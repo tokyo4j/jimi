@@ -283,11 +283,12 @@ formats_fini(void)
 }
 
 // The affine matrix from the sampled luma and chroma of the YCbCr format in
-// the limited range to R'G'B', for the coefficients of red and blue of the
-// luma. The values are in the most significant bits of their bytes.
+// the full or the limited range to R'G'B', for the coefficients of red and
+// blue of the luma. The values are in the most significant bits of their
+// bytes.
 void
 ycbcr_matrix(const struct pixel_format *format, double kr, double kb,
-	float matrix[3][4])
+	bool full_range, float matrix[3][4])
 {
 	uint32_t bits = format->ycbcr_bits;
 	uint32_t storage = 8 * format->bytes;
@@ -295,11 +296,17 @@ ycbcr_matrix(const struct pixel_format *format, double kr, double kb,
 	// The codes of the values sampled as 1.0, and of the steps of 8 bits
 	double max_code = (pow(2.0, storage) - 1.0) / pow(2.0, storage - bits);
 	double step = pow(2.0, bits - 8.0);
-	// Luma spans 16 to 235, and chroma 16 to 240 around 128, in steps.
-	double luma_scale = max_code / (219.0 * step);
-	double luma_offset = -16.0 / 219.0;
-	double chroma_scale = max_code / (224.0 * step);
-	double chroma_offset = -128.0 / 224.0;
+	// The codes of black and of neutral chroma, and the spans up to white
+	// and to the extremes of chroma. The limited range spans luma from 16
+	// to 235, and chroma from 16 to 240, in steps.
+	double black = full_range ? 0.0 : 16.0 * step;
+	double luma_span = full_range ? pow(2.0, bits) - 1.0 : 219.0 * step;
+	double neutral = 128.0 * step;
+	double chroma_span = full_range ? pow(2.0, bits) - 1.0 : 224.0 * step;
+	double luma_scale = max_code / luma_span;
+	double luma_offset = -black / luma_span;
+	double chroma_scale = max_code / chroma_span;
+	double chroma_offset = -neutral / chroma_span;
 	// Of Y'CbCr, with chroma from -0.5 to 0.5
 	double to_rgb[3][3] = {
 		{1.0, 0.0, 2.0 * (1.0 - kr)},

@@ -34,7 +34,9 @@ struct texture_push_constants {
 	struct matrix uv_transform;
 	// The texture is YCbCr, which the affine matrix converts into RGB.
 	uint32_t ycbcr;
-	uint32_t padding[3];
+	uint32_t padding;
+	// Added to the texture coordinates to sample the chroma of YCbCr
+	float chroma_offset[2];
 	float ycbcr_matrix[3][4]; // The rows
 	// Of struct color_transform, unless the colors are kept. The rows are
 	// padded to 4 floats.
@@ -45,6 +47,9 @@ struct texture_push_constants {
 	float dst_power;
 	uint32_t convert; // Otherwise, the colors are kept.
 	uint32_t opaque; // The alpha channel is ignored.
+	// enum wp_color_representation_surface_v1_alpha_mode, which the
+	// conversion takes the colors in
+	uint32_t alpha_mode;
 };
 
 struct solid_push_constants {
@@ -92,7 +97,7 @@ static_assert(sizeof(struct solid_push_constants) == 76,
 	"solid push constants must match solid shaders");
 static_assert(sizeof(struct shadow_push_constants) == 100,
 	"shadow push constants must match shadow shaders");
-static_assert(sizeof(struct texture_push_constants) == 248,
+static_assert(sizeof(struct texture_push_constants) == 252,
 	"texture push constants must match texture shaders");
 
 uint32_t vulkan_find_memory_type(VkPhysicalDevice phys, uint32_t bits,
@@ -116,7 +121,7 @@ VkImageFormatListCreateInfo image_format_list(const struct pixel_format *format)
 bool modifier_importable(const struct pixel_format *format, uint64_t modifier,
 	VkImageCreateFlags flags, VkImageUsageFlags usage);
 void ycbcr_matrix(const struct pixel_format *format, double kr, double kb,
-	float matrix[3][4]);
+	bool full_range, float matrix[3][4]);
 void vulkan_fini(void);
 void swapchain_update(struct output *output);
 void render_list_init_output(struct render_list *list, struct output *output);

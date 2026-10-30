@@ -45,13 +45,14 @@ client_buffer_handle_resource_destroy(struct wl_listener *listener, void *data)
 // state holds it. A dma-buf takes the fd for its implicit fences.
 struct client_buffer *
 client_buffer_create(enum client_buffer_type type,
-	struct wl_resource *resource, uint32_t width, uint32_t height,
-	struct texture *texture, int dmabuf_fd)
+	struct wl_resource *resource, const struct pixel_format *format,
+	uint32_t width, uint32_t height, struct texture *texture, int dmabuf_fd)
 {
 	struct client_buffer *buffer = calloc(1, sizeof(*buffer));
 	assert(buffer);
 	buffer->type = type;
 	buffer->resource = resource;
+	buffer->format = format;
 	buffer->width = width;
 	buffer->height = height;
 	wl_list_init(&buffer->release_callbacks);
@@ -85,7 +86,7 @@ client_buffer_from_resource(struct wl_resource *resource)
 	int32_t height = wl_shm_buffer_get_height(shm);
 	assert(width > 0 && height > 0
 		&& wl_shm_buffer_get_stride(shm) >= width * (int32_t)format->bytes);
-	return client_buffer_create(CLIENT_BUFFER_SHM, resource,
+	return client_buffer_create(CLIENT_BUFFER_SHM, resource, format,
 		(uint32_t)width, (uint32_t)height, NULL, -1);
 }
 

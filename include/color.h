@@ -86,7 +86,7 @@ double color_inverse_eotf(const struct image_description *description, double va
 void color_transform_init(struct color_transform *transform,
 	const struct image_description *src, const struct image_description *dst);
 struct color color_convert(struct color color, const struct image_description *dst);
-void color_ycbcr_coefficients(const struct image_description *description,
-	double *kr, double *kb);
+void color_ycbcr_coefficients(uint32_t coefficients,
+	const struct image_description *description, double *kr, double *kb);
 
 #endif

@@ -23,6 +23,7 @@
 #include "presentation-time-protocol.h"
 #include "tearing-control-v1-protocol.h"
 #include "color-management-v1-protocol.h"
+#include "color-representation-v1-protocol.h"
 #include "xdg-toplevel-icon-v1-protocol.h"
 #include "xdg-activation-v1-protocol.h"
 #include "xdg-dialog-v1-protocol.h"
@@ -221,6 +222,9 @@ wayland_init(void)
 	}
 	assert(wl_global_create(core.display, &wp_color_manager_v1_interface, 3,
 		NULL, wayland_bind_color_manager));
+	assert(wl_global_create(core.display,
+		&wp_color_representation_manager_v1_interface, 1, NULL,
+		wayland_bind_color_representation_manager));
 	assert(wl_global_create(core.display, &wl_seat_interface, SEAT_VERSION, NULL,
 		wayland_bind_seat));
 	assert(wl_global_create(core.display, &wl_data_device_manager_interface,

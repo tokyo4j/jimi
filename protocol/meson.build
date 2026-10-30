@@ -9,6 +9,7 @@ protocols = {
 	'presentation-time': protocol_dir / 'stable/presentation-time/presentation-time.xml',
 	'tearing-control-v1': protocol_dir / 'staging/tearing-control/tearing-control-v1.xml',
 	'color-management-v1': protocol_dir / 'staging/color-management/color-management-v1.xml',
+	'color-representation-v1': protocol_dir / 'staging/color-representation/color-representation-v1.xml',
 	'fractional-scale-v1': protocol_dir / 'staging/fractional-scale/fractional-scale-v1.xml',
 	'xdg-toplevel-icon-v1': protocol_dir / 'staging/xdg-toplevel-icon/xdg-toplevel-icon-v1.xml',
 	'xdg-activation-v1': protocol_dir / 'staging/xdg-activation/xdg-activation-v1.xml',

@@ -2,6 +2,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "color.h"
 #include "core.h"
@@ -755,6 +756,7 @@ surface_take_pending(struct surface *surface)
 	state->buffer = pending->buffer;
 	state->buffer_width = pending->buffer_width;
 	state->buffer_height = pending->buffer_height;
+	state->buffer_ycbcr = pending->buffer_ycbcr;
 	state->acquire = pending->acquire;
 	list_move(&state->frame_callbacks, &pending->frame_callbacks);
 	list_move(&state->presentation_feedbacks, &pending->presentation_feedbacks);
@@ -768,6 +770,7 @@ surface_take_pending(struct surface *surface)
 	state->tearing = pending->tearing;
 	state->image_description = pending->image_description
 		? image_description_ref(pending->image_description) : NULL;
+	state->representation = pending->representation;
 	pixman_region32_copy(&state->input_region, &pending->input_region);
 	state->input_region_set = pending->input_region_set;
 	pixman_region32_copy(&state->opaque_region, &pending->opaque_region);
@@ -844,6 +847,7 @@ surface_resource_destroy(struct wl_resource *resource)
 	syncobj_surface_destroy(surface);
 	dmabuf_feedback_surface_destroy(surface);
 	color_management_surface_destroy(surface);
+	color_representation_surface_destroy(surface);
 	image_description_unref(surface->preferred_image_description);
 	idle_inhibitors_surface_destroy(surface);
 	pointer_constraint_surface_destroy(surface);
@@ -879,6 +883,7 @@ surface_attach_req(struct wl_client *client, struct wl_resource *resource,
 	pending->buffer_attached = true;
 	pending->buffer_width = buffer ? buffer->width : 0;
 	pending->buffer_height = buffer ? buffer->height : 0;
+	pending->buffer_ycbcr = buffer && buffer->format->ycbcr_bits;
 }
 
 static void
@@ -913,6 +918,10 @@ surface_validate_pending(struct surface *surface)
 		}
 	}
 	if (surface->syncobj && !syncobj_surface_validate(surface)) {
+		return false;
+	}
+	if (surface->color_representation
+			&& !color_representation_validate(surface)) {
 		return false;
 	}
 	return surface_role_validate(surface);
@@ -967,7 +976,9 @@ surface_apply_state(struct surface *surface, struct surface_state *state)
 		|| viewport_changed(state, current)
 		|| !pixman_region32_equal(&state->opaque_region,
 			&current->opaque_region)
-		|| state->image_description != current->image_description;
+		|| state->image_description != current->image_description
+		|| memcmp(&state->representation, &current->representation,
+			sizeof(state->representation)) != 0;
 	struct box old_extent = surface_extent(surface);
 
 	list_move(&current->frame_callbacks, &state->frame_callbacks);
@@ -983,6 +994,7 @@ surface_apply_state(struct surface *surface, struct surface_state *state)
 	image_description_unref(current->image_description);
 	current->image_description = state->image_description
 		? image_description_ref(state->image_description) : NULL;
+	current->representation = state->representation;
 	if (offset_changed) {
 		surface->offset_x += state->dx;
 		surface->offset_y += state->dy;
@@ -1000,6 +1012,7 @@ surface_apply_state(struct surface *surface, struct surface_state *state)
 	}
 	current->buffer_width = state->buffer_width;
 	current->buffer_height = state->buffer_height;
+	current->buffer_ycbcr = state->buffer_ycbcr;
 	if (reshaped || state->buffer_attached) {
 		surface_update_size(surface);
 	}
@@ -1052,6 +1065,7 @@ surface_commit_req(struct wl_client *client, struct wl_resource *resource)
 		surface_state_set_buffer(pending, NULL);
 		pending->buffer_width = 0;
 		pending->buffer_height = 0;
+		pending->buffer_ycbcr = false;
 	}
 	if (!surface_validate_pending(surface)) {
 		return;

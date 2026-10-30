@@ -6,6 +6,7 @@
 
 #include <gbm.h>
 
+#include "color-representation-v1-protocol.h"
 #include "config.h"
 #include "internal.h"
 
@@ -413,13 +414,44 @@ push_texture_descriptors(VkCommandBuffer cmd, struct texture *texture)
 		vk->texture_pipe_layout, 0, TEXTURE_BINDINGS, writes);
 }
 
+// That of the textures that we draw
+static const struct color_representation unset_representation = {0};
+
+// Added to the texture coordinates of the luma of YCbCr to sample the chroma
+// at the location. The view of the chroma plane has its samples midway between
+// those of luma, as type 1 has them, which unset locations take.
+static void
+chroma_offset(const struct texture *texture, uint32_t location,
+	float offset[2])
+{
+	// Of the chroma samples, from the top-left luma samples of their 2x2
+	// blocks, in luma samples
+	static const float locations[][2] = {
+		[0] = {0.5f, 0.5f},
+		[WP_COLOR_REPRESENTATION_SURFACE_V1_CHROMA_LOCATION_TYPE_0] = {0.0f, 0.5f},
+		[WP_COLOR_REPRESENTATION_SURFACE_V1_CHROMA_LOCATION_TYPE_1] = {0.5f, 0.5f},
+		[WP_COLOR_REPRESENTATION_SURFACE_V1_CHROMA_LOCATION_TYPE_2] = {0.0f, 0.0f},
+		[WP_COLOR_REPRESENTATION_SURFACE_V1_CHROMA_LOCATION_TYPE_3] = {0.5f, 0.0f},
+		[WP_COLOR_REPRESENTATION_SURFACE_V1_CHROMA_LOCATION_TYPE_4] = {0.0f, 1.0f},
+		[WP_COLOR_REPRESENTATION_SURFACE_V1_CHROMA_LOCATION_TYPE_5] = {0.5f, 1.0f},
+	};
+	assert(location < ARRAY_LEN(locations));
+	offset[0] = (0.5f - locations[location][0]) / (float)texture->width;
+	offset[1] = (0.5f - locations[location][1]) / (float)texture->height;
+	// The rows are stored bottom-up, so the chroma is above in the texture.
+	if (texture->y_invert) {
+		offset[1] = -offset[1];
+	}
+}
+
 // Draws the source, in the unit square of the transformed texture, into the
 // region within the box in pixels of the image. The colors of the texture are
-// in the image description. Opaque textures are drawn without their alpha
-// channel.
+// in the image description, encoded as the representation tells. Opaque
+// textures are drawn without their alpha channel.
 static void
 draw_texture(const struct render_pass *pass, struct texture *texture,
-	const struct image_description *description, const struct box *box,
+	const struct image_description *description,
+	const struct color_representation *representation, const struct box *box,
 	const pixman_region32_t *region, enum wl_output_transform transform,
 	const struct fbox *source, bool opaque)
 {
@@ -464,13 +496,23 @@ draw_texture(const struct render_pass *pass, struct texture *texture,
 	get_ndc_transform(pass, push.ndc_transform);
 	if (texture->format->ycbcr_bits) {
 		push.ycbcr = true;
+		chroma_offset(texture, representation->chroma_location,
+			push.chroma_offset);
 		double kr, kb;
-		color_ycbcr_coefficients(description, &kr, &kb);
-		ycbcr_matrix(texture->format, kr, kb, push.ycbcr_matrix);
+		color_ycbcr_coefficients(representation->coefficients, description,
+			&kr, &kb);
+		ycbcr_matrix(texture->format, kr, kb, representation->range
+				== WP_COLOR_REPRESENTATION_SURFACE_V1_RANGE_FULL,
+			push.ycbcr_matrix);
 	}
+	// Colors that are not premultiplied by the alpha of their encoding are
+	// converted to be blended, unless they are opaque.
 	struct color_transform color;
 	color_transform_init(&color, description, pass->description);
-	if (!color.identity) {
+	push.alpha_mode = representation->alpha_mode;
+	push.convert = !color.identity || (!push.opaque && push.alpha_mode
+		!= WP_COLOR_REPRESENTATION_SURFACE_V1_ALPHA_MODE_PREMULTIPLIED_ELECTRICAL);
+	if (push.convert) {
 		for (int i = 0; i < 3; i++) {
 			for (int j = 0; j < 3; j++) {
 				push.color_matrix[i][j] = color.matrix[i][j];
@@ -480,7 +522,6 @@ draw_texture(const struct render_pass *pass, struct texture *texture,
 		push.src_power = color.src_power;
 		push.dst_tf = color.dst_tf;
 		push.dst_power = color.dst_power;
-		push.convert = true;
 	}
 	vkCmdPushConstants(pass->cmd, vk->texture_pipe_layout,
 		VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
@@ -629,9 +670,9 @@ draw_surface(const struct render_pass *pass, struct surface *surface,
 	source.y /= buffer.height;
 	source.width /= buffer.width;
 	source.height /= buffer.height;
-	draw_texture(pass, texture, surface_image_description(surface), box,
-		region, surface->current.transform, &source,
-		surface_is_fully_opaque(surface));
+	draw_texture(pass, texture, surface_image_description(surface),
+		&surface->current.representation, box, region,
+		surface->current.transform, &source, surface_is_fully_opaque(surface));
 }
 
 // Draws the drag icon or the cursor of the client at the box in pixels of the
@@ -673,7 +714,7 @@ draw_cursor(const struct render_pass *pass, struct output *output,
 		draw_pointer_surface(pass, client_cursor, box);
 	} else if (shape) {
 		draw_texture(pass, output->server_cursors[shape].texture,
-			&srgb_description, box, pass->damage,
+			&srgb_description, &unset_representation, box, pass->damage,
 			WL_OUTPUT_TRANSFORM_NORMAL, &whole_texture, false);
 	}
 }
@@ -993,8 +1034,9 @@ draw_render_entry(const struct render_pass *pass,
 	case SCENE_NODE_TEXTURE: {
 		struct scene_texture *texture = wl_container_of(node, texture, node);
 		assert(texture->texture);
-		draw_texture(pass, texture->texture, &srgb_description, box, region,
-			WL_OUTPUT_TRANSFORM_NORMAL, &whole_texture, false);
+		draw_texture(pass, texture->texture, &srgb_description,
+			&unset_representation, box, region, WL_OUTPUT_TRANSFORM_NORMAL,
+			&whole_texture, false);
 		return;
 	}
 	case SCENE_NODE_THUMBNAIL: {
@@ -1002,8 +1044,9 @@ draw_render_entry(const struct render_pass *pass,
 		// beforehand.
 		struct scene_thumbnail *thumbnail = wl_container_of(node, thumbnail, node);
 		assert(thumbnail->texture && !thumbnail->outdated);
-		draw_texture(pass, thumbnail->texture, &srgb_description, box,
-			region, WL_OUTPUT_TRANSFORM_NORMAL, &whole_texture, false);
+		draw_texture(pass, thumbnail->texture, &srgb_description,
+			&unset_representation, box, region, WL_OUTPUT_TRANSFORM_NORMAL,
+			&whole_texture, false);
 		return;
 	}
 	}
@@ -1444,8 +1487,9 @@ draw_magnifier(const struct render_pass *pass, struct output *output,
 		.width = size,
 		.height = size,
 	};
-	draw_texture(&lens_pass, texture, pass->description, lens, &damage,
-		output->transform, &source, true);
+	draw_texture(&lens_pass, texture, pass->description,
+		&unset_representation, lens, &damage, output->transform, &source,
+		true);
 	vkCmdEndRendering(pass->cmd);
 	pixman_region32_fini(&damage);
 }
@@ -1529,8 +1573,8 @@ draw_swapchain_image(struct output *output, struct swapchain_image *image,
 	if (blend_buffer) {
 		end_texture(image->cmd, blend_buffer);
 		begin_rendering(&pass);
-		draw_texture(&pass, blend_buffer, &blend, &physical, damage,
-			output->transform, &whole_texture, true);
+		draw_texture(&pass, blend_buffer, &blend, &unset_representation,
+			&physical, damage, output->transform, &whole_texture, true);
 		vkCmdEndRendering(image->cmd);
 	}
 	end_image(image);

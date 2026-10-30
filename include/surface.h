@@ -10,6 +10,7 @@
 struct gbm_bo;
 struct image_description;
 struct output;
+struct pixel_format;
 struct pointer_constraint;
 struct texture;
 struct transaction;
@@ -38,6 +39,7 @@ struct client_buffer {
 	enum client_buffer_type type;
 	struct wl_resource *resource; // NULL once the client destroys it.
 	struct wl_listener resource_destroy;
+	const struct pixel_format *format;
 	uint32_t width;
 	uint32_t height;
 	// Surface states holding the buffer. Once the last one lets go, a
@@ -99,6 +101,18 @@ struct subsurface_placement {
 	int y;
 };
 
+// How the pixels of the buffer encode colors, set by
+// wp_color_representation_surface_v1. The values are of the enums of the
+// protocol, and 0 leaves them unset. Unset coefficients follow the primaries
+// of the image description, with the limited range, and the chroma is sampled
+// as type 1. The default alpha mode is 0.
+struct color_representation {
+	uint32_t alpha_mode;
+	uint32_t coefficients;
+	uint32_t range;
+	uint32_t chroma_location;
+};
+
 // The double-buffered state of a surface and its role. The pending state
 // keeps the persistent values after each commit takes the state out of it,
 // so commits are checked against it.
@@ -111,6 +125,7 @@ struct surface_state {
 	// a buffer.
 	uint32_t buffer_width;
 	uint32_t buffer_height;
+	bool buffer_ycbcr; // The buffer is YCbCr.
 	// The releases for the attached buffer, which takes them on commit.
 	struct wl_list release_callbacks; // wl_callback resource links
 	struct syncobj_point release; // Set by linux-drm-syncobj-v1
@@ -134,6 +149,7 @@ struct surface_state {
 	bool tearing;
 	// Referenced. Set by wp_color_management_surface_v1, or NULL for sRGB.
 	struct image_description *image_description;
+	struct color_representation representation;
 	pixman_region32_t input_region;
 	bool input_region_set; // false means the protocol's infinite default.
 	pixman_region32_t opaque_region;
@@ -196,6 +212,8 @@ struct surface {
 	struct wl_resource *color_management; // wp_color_management_surface_v1
 	// wp_color_management_surface_feedback_v1 resource links
 	struct wl_list color_feedbacks;
+	// wp_color_representation_surface_v1
+	struct wl_resource *color_representation;
 	// The output whose primary plane the dma-buf feedback suggests
 	// allocating buffers for, or NULL.
 	struct output *scanout_output;
@@ -343,8 +361,8 @@ void transactions_apply_ready(void);
 void transactions_forget_surface(struct surface *surface);
 
 struct client_buffer *client_buffer_create(enum client_buffer_type type,
-	struct wl_resource *resource, uint32_t width, uint32_t height,
-	struct texture *texture, int dmabuf_fd);
+	struct wl_resource *resource, const struct pixel_format *format,
+	uint32_t width, uint32_t height, struct texture *texture, int dmabuf_fd);
 struct client_buffer *client_buffer_from_resource(struct wl_resource *resource);
 void client_buffer_lock(struct client_buffer *buffer);
 void client_buffer_unlock(struct client_buffer *buffer);
@@ -367,6 +385,8 @@ void syncobj_surface_destroy(struct surface *surface);
 
 void color_management_send_preferred(struct surface *surface);
 void color_management_surface_destroy(struct surface *surface);
+bool color_representation_validate(struct surface *surface);
+void color_representation_surface_destroy(struct surface *surface);
 
 void dmabuf_feedback_set_scanout_output(struct surface *surface,
 	struct output *output);

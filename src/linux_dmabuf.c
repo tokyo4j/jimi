@@ -193,8 +193,8 @@ params_create_common(struct wl_resource *resource, uint32_t buffer_id,
 	assert(buffer_resource);
 	wl_resource_set_implementation(buffer_resource, &buffer_impl, NULL, NULL);
 	struct client_buffer *buffer = client_buffer_create(CLIENT_BUFFER_DMABUF,
-		buffer_resource, (uint32_t)width, (uint32_t)height, texture,
-		params->planes[0].fd);
+		buffer_resource, pixel_format, (uint32_t)width, (uint32_t)height,
+		texture, params->planes[0].fd);
 	buffer->fb = kms_import_dmabuf(&attributes, &buffer->bo);
 	params->planes[0].fd = -1;
 	if (buffer_id == 0) {

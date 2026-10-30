@@ -101,6 +101,8 @@ void wayland_bind_tearing_control_manager(struct wl_client *client,
 	void *data, uint32_t version, uint32_t id);
 void wayland_bind_color_manager(struct wl_client *client, void *data,
 	uint32_t version, uint32_t id);
+void wayland_bind_color_representation_manager(struct wl_client *client,
+	void *data, uint32_t version, uint32_t id);
 void wayland_bind_xdg_toplevel_icon_manager(struct wl_client *client,
 	void *data, uint32_t version, uint32_t id);
 void wayland_bind_xdg_activation(struct wl_client *client, void *data,

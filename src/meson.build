@@ -26,6 +26,7 @@ jimi_sources = files(
 	'tearing_control.c',
 	'color.c',
 	'color_management.c',
+	'color_representation.c',
 	'foreign_toplevel.c',
 	'workspace.c',
 	'image_capture.c',

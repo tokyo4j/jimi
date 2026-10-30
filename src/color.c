@@ -3,6 +3,7 @@
 #include <stdlib.h>
 
 #include "color.h"
+#include "color-representation-v1-protocol.h"
 
 // The constants of SMPTE ST 2084
 #define PQ_M1 0.1593017578125
@@ -436,27 +437,49 @@ color_convert(struct color color, const struct image_description *dst)
 		color.a};
 }
 
-// The coefficients of red and blue of the luma of YCbCr in the colors of the
-// image description. Without color-representation-v1, they follow the
-// primaries, like those of videos do.
+// The coefficients of red and blue of the luma of YCbCr, of
+// enum wp_color_representation_surface_v1_coefficients. Unset ones follow the
+// primaries of the image description, like those of videos do.
 void
-color_ycbcr_coefficients(const struct image_description *description,
-	double *kr, double *kb)
+color_ycbcr_coefficients(uint32_t coefficients,
+	const struct image_description *description, double *kr, double *kb)
 {
-	switch (description->primaries_named) {
-	case WP_COLOR_MANAGER_V1_PRIMARIES_BT2020:
-		*kr = 0.2627;
-		*kb = 0.0593;
-		return;
-	case WP_COLOR_MANAGER_V1_PRIMARIES_PAL_M:
-	case WP_COLOR_MANAGER_V1_PRIMARIES_PAL:
-	case WP_COLOR_MANAGER_V1_PRIMARIES_NTSC:
-		*kr = 0.299;
-		*kb = 0.114;
-		return;
-	default:
+	if (!coefficients) {
+		switch (description->primaries_named) {
+		case WP_COLOR_MANAGER_V1_PRIMARIES_BT2020:
+			coefficients = WP_COLOR_REPRESENTATION_SURFACE_V1_COEFFICIENTS_BT2020;
+			break;
+		case WP_COLOR_MANAGER_V1_PRIMARIES_PAL_M:
+		case WP_COLOR_MANAGER_V1_PRIMARIES_PAL:
+		case WP_COLOR_MANAGER_V1_PRIMARIES_NTSC:
+			coefficients = WP_COLOR_REPRESENTATION_SURFACE_V1_COEFFICIENTS_BT601;
+			break;
+		default:
+			coefficients = WP_COLOR_REPRESENTATION_SURFACE_V1_COEFFICIENTS_BT709;
+			break;
+		}
+	}
+	switch (coefficients) {
+	case WP_COLOR_REPRESENTATION_SURFACE_V1_COEFFICIENTS_BT709:
 		*kr = 0.2126;
 		*kb = 0.0722;
 		return;
+	case WP_COLOR_REPRESENTATION_SURFACE_V1_COEFFICIENTS_FCC:
+		*kr = 0.30;
+		*kb = 0.11;
+		return;
+	case WP_COLOR_REPRESENTATION_SURFACE_V1_COEFFICIENTS_BT601:
+		*kr = 0.299;
+		*kb = 0.114;
+		return;
+	case WP_COLOR_REPRESENTATION_SURFACE_V1_COEFFICIENTS_SMPTE240:
+		*kr = 0.212;
+		*kb = 0.087;
+		return;
+	case WP_COLOR_REPRESENTATION_SURFACE_V1_COEFFICIENTS_BT2020:
+		*kr = 0.2627;
+		*kb = 0.0593;
+		return;
 	}
+	assert(!"the coefficients are not of YCbCr");
 }

@@ -8,7 +8,9 @@ layout(set = 0, binding = 1) uniform sampler2D chroma;
 layout(push_constant, row_major) uniform Push {
 	// The texture is YCbCr, which the affine matrix converts into RGB.
 	layout(offset = 112) uint ycbcr;
-	layout(offset = 128) vec4 ycbcr_matrix[3]; // The rows
+	// Added to the texture coordinates to sample the chroma of YCbCr
+	layout(offset = 120) vec2 chroma_offset;
+	vec4 ycbcr_matrix[3]; // The rows
 	mat3 matrix;
 	uint src_tf;
 	float src_power;
@@ -16,6 +18,9 @@ layout(push_constant, row_major) uniform Push {
 	float dst_power;
 	uint convert; // Otherwise, the colors are kept.
 	uint opaque; // The alpha channel is ignored.
+	// enum wp_color_representation_surface_v1_alpha_mode, which the
+	// conversion takes the colors in
+	uint alpha_mode;
 } pc;
 
 layout(location = 0) in vec2 v_uv;
@@ -27,6 +32,10 @@ const uint TF_POWER = 1u;
 const uint TF_SRGB = 2u;
 const uint TF_BT1886 = 3u;
 const uint TF_PQ = 4u;
+
+// Matches enum wp_color_representation_surface_v1_alpha_mode
+const uint ALPHA_PREMULTIPLIED_ELECTRICAL = 0u;
+const uint ALPHA_PREMULTIPLIED_OPTICAL = 1u;
 
 // Of SMPTE ST 2084
 const float PQ_M1 = 0.1593017578125;
@@ -87,14 +96,20 @@ vec3 inverse_eotf(uint tf, float power, vec3 value)
 	return value;
 }
 
-// The colors are premultiplied by the alpha of their encoding, so they are
-// divided by it to be converted, and multiplied by it again. Colors outside
-// of the destination are clipped unless it is linear.
+vec3 unpremultiply(vec3 rgb, float alpha)
+{
+	return alpha > 0.0 ? rgb / alpha : vec3(0.0);
+}
+
+// The colors are converted without alpha, as premultiplied by the alpha of
+// their encoding they are blended in. Colors outside of the destination are
+// clipped unless it is linear.
 void main()
 {
 	vec4 color = texture(tex, v_uv);
 	if (pc.ycbcr != 0u) {
-		vec4 ycbcr = vec4(color.r, texture(chroma, v_uv).rg, 1.0);
+		vec2 cbcr = texture(chroma, v_uv + pc.chroma_offset).rg;
+		vec4 ycbcr = vec4(color.r, cbcr, 1.0);
 		color = vec4(dot(pc.ycbcr_matrix[0], ycbcr),
 			dot(pc.ycbcr_matrix[1], ycbcr), dot(pc.ycbcr_matrix[2], ycbcr), 1.0);
 	}
@@ -102,8 +117,15 @@ void main()
 		color.a = 1.0;
 	}
 	if (pc.convert != 0u) {
-		vec3 rgb = color.a > 0.0 ? color.rgb / color.a : vec3(0.0);
-		rgb = pc.matrix * eotf(pc.src_tf, pc.src_power, rgb);
+		vec3 rgb = color.rgb;
+		if (pc.alpha_mode == ALPHA_PREMULTIPLIED_ELECTRICAL) {
+			rgb = unpremultiply(rgb, color.a);
+		}
+		rgb = eotf(pc.src_tf, pc.src_power, rgb);
+		if (pc.alpha_mode == ALPHA_PREMULTIPLIED_OPTICAL) {
+			rgb = unpremultiply(rgb, color.a);
+		}
+		rgb = pc.matrix * rgb;
 		if (pc.dst_tf != TF_LINEAR) {
 			rgb = clamp(rgb, 0.0, 1.0);
 		}
