@@ -426,8 +426,8 @@ button_state(struct window *window, enum decoration_part button)
 	case POINTER_GRAB_NONE:
 		return over ? BUTTON_STATE_HOVERED : BUTTON_STATE_NORMAL;
 	case POINTER_GRAB_DECORATION_BUTTON: {
-		bool grabbed = pointer->grab.decoration_button.window == window
-			&& pointer->grab.decoration_button.part == button;
+		bool grabbed = pointer->grab.window == window
+			&& pointer->grab.decoration_button == button;
 		return over && grabbed ? BUTTON_STATE_PRESSED : BUTTON_STATE_NORMAL;
 	}
 	case POINTER_GRAB_MOVE:

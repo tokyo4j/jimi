@@ -108,8 +108,8 @@ workspace_show(int workspace)
 	core.workspaces.current = workspace;
 	struct pointer_grab *grab = &core.seat.pointer.grab;
 	if (grab->type == POINTER_GRAB_MOVE
-			&& grab->move.window->workspace != WORKSPACE_STICKY) {
-		set_family_workspace(grab->move.window, workspace);
+			&& grab->window->workspace != WORKSPACE_STICKY) {
+		set_family_workspace(grab->window, workspace);
 	}
 	update_visibility();
 	struct workspace_manager *manager;

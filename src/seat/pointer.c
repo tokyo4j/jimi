@@ -807,7 +807,7 @@ show_snap_preview(void *data)
 static struct box
 resize_geometry(const struct pointer_grab *grab)
 {
-	struct window *window = grab->resize.window;
+	struct window *window = grab->window;
 	struct box start = grab->resize.start_geometry;
 	int dx = (int)round(core.seat.pointer.x - grab->resize.start_x);
 	int dy = (int)round(core.seat.pointer.y - grab->resize.start_y);
@@ -856,7 +856,7 @@ static void
 resize_by_motion(uint32_t time)
 {
 	struct pointer_grab *grab = &core.seat.pointer.grab;
-	struct output *output = grab->resize.window->output;
+	struct output *output = grab->window->output;
 	if (output && time - grab->resize.last_configure_time
 			< 1000000 / (uint32_t)mode_refresh(output->mode)) {
 		return;
@@ -866,7 +866,7 @@ resize_by_motion(uint32_t time)
 			&& geometry.height == grab->resize.configured_height) {
 		return;
 	}
-	window_resize(grab->resize.window, geometry, grab->resize.edges, true);
+	window_resize(grab->window, geometry, grab->resize.edges, true);
 	grab->resize.configured_width = geometry.width;
 	grab->resize.configured_height = geometry.height;
 	grab->resize.last_configure_time = time;
@@ -887,8 +887,8 @@ start_move(struct window *window, uint32_t button)
 	core.seat.pointer.grab = (struct pointer_grab){
 		.type = POINTER_GRAB_MOVE,
 		.button = button,
+		.window = window,
 		.move = {
-			.window = window,
 			.start_x = core.seat.pointer.x,
 			.start_y = core.seat.pointer.y,
 			.start_geometry = window->current.geometry,
@@ -910,8 +910,8 @@ start_resize(struct window *window, uint32_t button, uint32_t edges)
 	core.seat.pointer.grab = (struct pointer_grab){
 		.type = POINTER_GRAB_RESIZE,
 		.button = button,
+		.window = window,
 		.resize = {
-			.window = window,
 			.edges = edges,
 			.start_x = core.seat.pointer.x,
 			.start_y = core.seat.pointer.y,
@@ -969,22 +969,20 @@ end_grab(bool cancelled)
 		wl_event_source_remove(grab.move.snap_preview_timer);
 		scene_node_set_enabled(&core.snap_preview.node, false);
 		if (!cancelled && grab.move.snap_edges) {
-			window_snap(grab.move.window, grab.move.snap_output,
+			window_snap(grab.window, grab.move.snap_output,
 				grab.move.snap_edges);
 		}
 		return;
 	case POINTER_GRAB_RESIZE: {
-		struct window *window = grab.resize.window;
 		struct box geometry = cancelled
-			? window->pending.geometry : resize_geometry(&grab);
-		window_resize(window, geometry, grab.resize.edges, false);
+			? grab.window->pending.geometry : resize_geometry(&grab);
+		window_resize(grab.window, geometry, grab.resize.edges, false);
 		return;
 	}
 	case POINTER_GRAB_DECORATION_BUTTON:
-		decoration_update_buttons(grab.decoration_button.window);
+		decoration_update_buttons(grab.window);
 		if (!cancelled) {
-			click_decoration_button(grab.decoration_button.window,
-				grab.decoration_button.part);
+			click_decoration_button(grab.window, grab.decoration_button);
 		}
 		return;
 	case POINTER_GRAB_DND:
@@ -1005,31 +1003,6 @@ void
 pointer_cancel_grab(void)
 {
 	end_grab(true);
-}
-
-// Ends the grab of a window when it is unmapped.
-static void
-cancel_grab_of_surface(struct surface *surface)
-{
-	struct pointer_grab *grab = &core.seat.pointer.grab;
-	struct window *window = NULL;
-	switch (grab->type) {
-	case POINTER_GRAB_NONE:
-	case POINTER_GRAB_DND:
-		return;
-	case POINTER_GRAB_MOVE:
-		window = grab->move.window;
-		break;
-	case POINTER_GRAB_RESIZE:
-		window = grab->resize.window;
-		break;
-	case POINTER_GRAB_DECORATION_BUTTON:
-		window = grab->decoration_button.window;
-		break;
-	}
-	if (window->surface == surface) {
-		pointer_cancel_grab();
-	}
 }
 
 // Moves the pointer without input events, e.g. to a touch point taken for a
@@ -1237,7 +1210,7 @@ static void
 update_snap_edges(void)
 {
 	struct pointer_grab *grab = &core.seat.pointer.grab;
-	struct window *window = grab->move.window;
+	struct window *window = grab->window;
 	struct output *output = output_nearest(core.seat.pointer.x, core.seat.pointer.y);
 	uint32_t edges = output && window_floating(window)
 		? snap_edges_at_pointer(output) : EDGE_NONE;
@@ -1279,7 +1252,7 @@ struct box
 pointer_move_geometry(struct window *window, int width, int height)
 {
 	struct pointer_grab *grab = &core.seat.pointer.grab;
-	if (grab->type != POINTER_GRAB_MOVE || grab->move.window != window) {
+	if (grab->type != POINTER_GRAB_MOVE || grab->window != window) {
 		return (struct box){0};
 	}
 	struct box *start = &grab->move.start_geometry;
@@ -1302,7 +1275,7 @@ static void
 move_by_motion(void)
 {
 	struct pointer_grab *grab = &core.seat.pointer.grab;
-	struct window *window = grab->move.window;
+	struct window *window = grab->window;
 	if (window->pending.maximized || window->pending.tiled) {
 		double dx = core.seat.pointer.x - grab->move.start_x;
 		double dy = core.seat.pointer.y - grab->move.start_y;
@@ -1447,10 +1420,8 @@ press_decoration(uint32_t time, uint32_t button)
 		core.seat.pointer.grab = (struct pointer_grab){
 			.type = POINTER_GRAB_DECORATION_BUTTON,
 			.button = button,
-			.decoration_button = {
-				.window = window,
-				.part = target.part,
-			},
+			.window = window,
+			.decoration_button = target.part,
 		};
 		decoration_update_buttons(window);
 		return;
@@ -1629,8 +1600,11 @@ pointer_forget_surface(struct surface *surface)
 		}
 	}
 	pointer_gestures_forget_surface(surface);
-	cancel_grab_of_surface(surface);
 	struct pointer_grab *grab = &core.seat.pointer.grab;
+	// The grab of a window ends when it is unmapped.
+	if (grab->window && grab->window->surface == surface) {
+		pointer_cancel_grab();
+	}
 	if (grab->type == POINTER_GRAB_DND
 			&& surface_contains(surface, grab->drag.focus)) {
 		drag_motion(&grab->drag, NULL, 0.0, 0.0, 0, false);

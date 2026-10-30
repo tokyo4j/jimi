@@ -131,9 +131,10 @@ enum pointer_grab_type {
 struct pointer_grab {
 	enum pointer_grab_type type;
 	uint32_t button;
+	// Moved, resized, or whose decoration button is pressed. NULL for drags.
+	struct window *window;
 	union {
 		struct {
-			struct window *window;
 			double start_x, start_y;
 			struct box start_geometry; // Committed
 			// Snapped to when released
@@ -143,7 +144,6 @@ struct pointer_grab {
 			struct wl_event_source *snap_preview_timer;
 		} move;
 		struct {
-			struct window *window;
 			uint32_t edges; // enum edge
 			double start_x, start_y;
 			struct box start_geometry;
@@ -151,10 +151,7 @@ struct pointer_grab {
 			int configured_height;
 			uint32_t last_configure_time; // ms, of the motion
 		} resize;
-		struct {
-			struct window *window;
-			enum decoration_part part;
-		} decoration_button;
+		enum decoration_part decoration_button;
 		struct drag drag;
 	};
 };
