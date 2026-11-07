@@ -11,6 +11,9 @@
 struct data_device {
 	struct wl_resource *resource;
 	struct wl_list link; // core.seat.data_devices
+	// Of the drag that entered last, until it leaves or the client destroys
+	// the offer. The client keeps the offer of a drop to finish it, even as
+	// other drags enter, or its device is destroyed.
 	struct data_offer *drag_offer;
 };
 
@@ -20,7 +23,6 @@ struct data_offer {
 	struct wl_resource *resource;
 	struct wl_list link; // data_source.offers
 	struct data_source *source; // NULL once inert
-	struct data_device *device;
 	char *accepted_mime_type;
 	uint32_t enter_serial;
 	uint32_t actions;
@@ -184,8 +186,11 @@ data_offer_resource_destroy(struct wl_resource *resource)
 			cancel_source(offer->source);
 		}
 	}
-	if (offer->device && offer->device->drag_offer == offer) {
-		offer->device->drag_offer = NULL;
+	struct data_device *device;
+	wl_list_for_each(device, &core.seat.data_devices, link) {
+		if (device->drag_offer == offer) {
+			device->drag_offer = NULL;
+		}
 	}
 	wl_list_remove(&offer->link);
 	free(offer->accepted_mime_type);
@@ -341,7 +346,6 @@ leave_drag_focus(struct drag *drag)
 			wl_data_device_send_leave(device->resource);
 			if (device->drag_offer) {
 				device->drag_offer->active = false;
-				device->drag_offer->device = NULL;
 				device->drag_offer = NULL;
 			}
 		}
@@ -427,7 +431,6 @@ create_drag_offer(struct data_device *device, struct data_source *source,
 	}
 	struct data_offer *offer = create_offer(device->resource,
 		&wl_data_offer_interface, &data_offer_impl, source);
-	offer->device = device;
 	offer->enter_serial = enter_serial;
 	offer->drag = true;
 	offer->active = true;
@@ -719,9 +722,6 @@ data_device_resource_destroy(struct wl_resource *resource)
 {
 	struct data_device *device = wl_resource_get_user_data(resource);
 	assert(device);
-	if (device->drag_offer) {
-		device->drag_offer->device = NULL;
-	}
 	wl_list_remove(&device->link);
 	free(device);
 	// A drag without a source ends with the client, like others end with
