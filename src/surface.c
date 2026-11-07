@@ -89,29 +89,6 @@ surface_from_layout(struct surface *surface, double x, double y, double *sx,
 	*sy = y - surface_y;
 }
 
-// Cursors and drag icons are drawn by the pointer, not the scene.
-static bool
-surface_in_scene(struct surface *surface)
-{
-	switch (surface->role) {
-	case SURFACE_ROLE_NONE:
-	case SURFACE_ROLE_CURSOR:
-	case SURFACE_ROLE_DND_ICON:
-	case SURFACE_ROLE_XDG_SURFACE:
-		return false;
-	case SURFACE_ROLE_SUBSURFACE:
-	case SURFACE_ROLE_XDG_TOPLEVEL:
-	case SURFACE_ROLE_XDG_POPUP:
-	case SURFACE_ROLE_LAYER_SURFACE:
-	case SURFACE_ROLE_INPUT_PANEL:
-	case SURFACE_ROLE_LOCK_SURFACE:
-	case SURFACE_ROLE_XWAYLAND:
-		return true;
-	}
-	assert(!"unknown surface role");
-	return false;
-}
-
 static void
 surface_update_scene_enabled(struct surface *surface)
 {
@@ -121,15 +98,13 @@ surface_update_scene_enabled(struct surface *surface)
 }
 
 // Where the surface is drawn, in layout coordinates. Empty while it is hidden.
+// Only cursors are outside of the scene, as they may be on the cursor planes.
 static struct box
 surface_shown_box(struct surface *surface)
 {
-	if (surface == pointer_client_cursor_surface()
-			|| surface == pointer_drag_icon_surface()) {
-		return pointer_surface_box(surface);
-	}
-	if (!surface_in_scene(surface)) {
-		return (struct box){0};
+	if (surface->role == SURFACE_ROLE_CURSOR) {
+		return surface == pointer_client_cursor_surface()
+			? pointer_cursor_surface_box() : (struct box){0};
 	}
 	struct box box = {.width = surface->width, .height = surface->height};
 	return scene_node_layout_box(&surface->scene.node, &box);
@@ -145,8 +120,8 @@ surface_extent(struct surface *surface)
 	case SURFACE_ROLE_XDG_SURFACE:
 		return (struct box){0};
 	case SURFACE_ROLE_CURSOR:
-	case SURFACE_ROLE_DND_ICON:
 		return surface_shown_box(surface);
+	case SURFACE_ROLE_DND_ICON:
 	case SURFACE_ROLE_SUBSURFACE:
 	case SURFACE_ROLE_LAYER_SURFACE:
 	case SURFACE_ROLE_INPUT_PANEL:
@@ -1028,20 +1003,21 @@ surface_apply_state(struct surface *surface, struct surface_state *state)
 	surface_role_commit(surface, state);
 
 	struct box new_extent = surface_extent(surface);
+	bool cursor = surface->role == SURFACE_ROLE_CURSOR;
 	if (reshaped || !box_equal(&old_extent, &new_extent)) {
 		damage_extent(surface, &old_extent);
 		damage_extent(surface, &new_extent);
-	} else if (surface_in_scene(surface)) {
+	} else if (!cursor) {
 		damage_surface_region(surface, &content_damage);
 	} else if (content_damaged || (frame_requested && surface->mapped)) {
-		// Cursors and drag icons send their frame callbacks when drawn.
+		// Cursors send their frame callbacks when drawn.
 		damage_extent(surface, &new_extent);
 	}
 	pixman_region32_fini(&content_damage);
 	// The frames of the outputs send the frame callbacks and the
 	// presentation feedbacks, even if the damage is off them or there is
 	// none, as clients wait for them.
-	if ((frame_requested || feedback_requested) && surface_in_scene(surface)) {
+	if ((frame_requested || feedback_requested) && !cursor) {
 		schedule_frames(surface->outputs);
 	}
 	// Drawing the thumbnail or capturing the window also paces the window

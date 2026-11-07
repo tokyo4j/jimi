@@ -211,7 +211,7 @@ cursor_box(struct output *output)
 	struct surface *client_cursor = pointer_client_cursor_surface();
 	enum wp_cursor_shape_device_v1_shape shape = pointer_cursor_shape();
 	if (client_cursor) {
-		struct box logical = pointer_surface_box(client_cursor);
+		struct box logical = pointer_cursor_surface_box();
 		return (struct box){
 			.x = physical(scale, logical.x - output->box.x),
 			.y = physical(scale, logical.y - output->box.y),
@@ -675,43 +675,19 @@ draw_surface(const struct render_pass *pass, struct surface *surface,
 		surface->current.transform, &source, surface_is_fully_opaque(surface));
 }
 
-// Draws the drag icon or the cursor of the client at the box in pixels of the
-// pass. Unlike the surfaces in render lists, they may be off the image, and
-// get their frame callbacks only if they are in it.
-static void
-draw_pointer_surface(const struct render_pass *pass, struct surface *surface,
-	const struct box *box)
-{
-	struct box image = {.width = pass->width, .height = pass->height};
-	if (box_intersects(&image, box)) {
-		draw_surface(pass, surface, box, pass->damage);
-		callbacks_send_done(&surface->current.frame_callbacks, pass->time);
-	}
-}
-
-static void
-draw_drag_icon(const struct render_pass *pass, struct output *output,
-	struct surface *surface)
-{
-	struct box logical = pointer_surface_box(surface);
-	struct box box = {
-		.x = physical(pass->scale, logical.x - output->box.x),
-		.y = physical(pass->scale, logical.y - output->box.y),
-		.width = physical(pass->scale, logical.width),
-		.height = physical(pass->scale, logical.height),
-	};
-	draw_pointer_surface(pass, surface, &box);
-}
-
-// Draws the cursor at the box in pixels of the pass.
+// Draws the cursor at the box in pixels of the pass. Unlike the surfaces in
+// render lists, that of the client may be off the image, and gets its frame
+// callbacks only if it is in it.
 static void
 draw_cursor(const struct render_pass *pass, struct output *output,
 	const struct box *box)
 {
 	struct surface *client_cursor = pointer_client_cursor_surface();
 	enum wp_cursor_shape_device_v1_shape shape = pointer_cursor_shape();
-	if (client_cursor) {
-		draw_pointer_surface(pass, client_cursor, box);
+	struct box image = {.width = pass->width, .height = pass->height};
+	if (client_cursor && box_intersects(&image, box)) {
+		draw_surface(pass, client_cursor, box, pass->damage);
+		callbacks_send_done(&client_cursor->current.frame_callbacks, pass->time);
 	} else if (shape) {
 		draw_texture(pass, output->server_cursors[shape].texture,
 			&srgb_description, &unset_representation, box, pass->damage,
@@ -1108,17 +1084,13 @@ transition_render_list(VkCommandBuffer cmd, const struct render_list *list,
 	}
 }
 
-// The dma-bufs drawn on the output: the surfaces in the list, the drag icon
-// and the cursor of the client.
+// The dma-bufs drawn on the output: the surfaces in the list and the cursor of
+// the client.
 static void
 transition_dmabufs(VkCommandBuffer cmd, const struct render_list *list, bool acquire)
 {
 	transition_render_list(cmd, list, acquire);
-	struct surface *drag_icon = pointer_drag_icon_surface();
 	struct surface *client_cursor = pointer_client_cursor_surface();
-	if (drag_icon) {
-		transition_dmabuf_texture(cmd, surface_texture(drag_icon), acquire);
-	}
 	if (client_cursor) {
 		transition_dmabuf_texture(cmd, surface_texture(client_cursor), acquire);
 	}
@@ -1182,7 +1154,7 @@ clear_uncovered(const struct render_pass *pass, struct color clear,
 }
 
 // Draws the damage of the pass on the output, with the nodes of its list, and
-// the cursor if requested. The drag icon is always drawn.
+// the cursor if requested.
 static void
 draw_output(const struct render_pass *pass, struct output *output,
 	const struct render_list *list, bool cursor)
@@ -1191,10 +1163,6 @@ draw_output(const struct render_pass *pass, struct output *output,
 	begin_rendering(pass);
 	clear_uncovered(pass, config.desktop.background_color, &list->uncovered);
 	draw_render_list(pass, list);
-	struct surface *drag_icon = pointer_drag_icon_surface();
-	if (drag_icon) {
-		draw_drag_icon(pass, output, drag_icon);
-	}
 	if (cursor) {
 		struct box box = cursor_box(output);
 		draw_cursor(pass, output, &box);
@@ -1585,15 +1553,14 @@ draw_swapchain_image(struct output *output, struct swapchain_image *image,
 // the swapchain, if KMS can scan it out, or NULL if there is none. It has to
 // be the only node in the list of the output, covering it opaquely with the
 // whole buffer, unscaled, in the orientation and the colors of the output.
-// Neither the cursor, the drag icon nor the magnifier can be drawn over it.
+// Neither the cursor nor the magnifier can be drawn over it.
 struct surface *
 scanout_surface(struct output *output, const struct render_list *list)
 {
 	struct box physical = output_physical_box(output);
 	struct box cursor = cursor_box(output);
-	if (pointer_drag_icon_surface() || output_magnified(output)
-			|| (!cursor_fits_plane(output)
-				&& box_intersects(&cursor, &physical))) {
+	if (output_magnified(output) || (!cursor_fits_plane(output)
+			&& box_intersects(&cursor, &physical))) {
 		return NULL;
 	}
 	const struct render_entry *entry = list->entries.data;

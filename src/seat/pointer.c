@@ -26,13 +26,6 @@ drag_icon(void)
 	return grab->type == POINTER_GRAB_DND ? grab->drag.icon : NULL;
 }
 
-struct surface *
-pointer_drag_icon_surface(void)
-{
-	struct surface *surface = drag_icon();
-	return surface && surface->mapped && surface->current.buffer ? surface : NULL;
-}
-
 // The surface whose client picks the cursor
 static struct surface *
 cursor_focus(void)
@@ -67,47 +60,34 @@ pointer_cursor_shape(void)
 	return focus ? 0 : pointer->server_cursor_shape;
 }
 
-// The cursor and the drag icon are placed at the pointer by their hotspot,
-// and moved by the offsets committed to them.
+// The cursor surface is placed at the pointer by its hotspot, and moved by the
+// offsets committed to it.
 static struct box
-surface_box_at(struct surface *surface, double x, double y)
+cursor_surface_box_at(double x, double y)
 {
 	struct pointer *pointer = &core.seat.pointer;
-	bool cursor = surface == pointer->cursor.surface;
-	assert(cursor || surface == drag_icon());
-	int hotspot_x = cursor ? pointer->cursor.hotspot_x
-		: pointer->grab.drag.icon_hotspot_x;
-	int hotspot_y = cursor ? pointer->cursor.hotspot_y
-		: pointer->grab.drag.icon_hotspot_y;
+	struct surface *surface = pointer->cursor.surface;
 	return (struct box){
-		.x = (int)x - hotspot_x + surface->offset_x,
-		.y = (int)y - hotspot_y + surface->offset_y,
+		.x = (int)x - pointer->cursor.hotspot_x + surface->offset_x,
+		.y = (int)y - pointer->cursor.hotspot_y + surface->offset_y,
 		.width = surface->width,
 		.height = surface->height,
 	};
 }
 
-// Where the cursor or the drag icon surface is drawn.
+// Where the cursor surface is drawn.
 struct box
-pointer_surface_box(struct surface *surface)
+pointer_cursor_surface_box(void)
 {
-	return surface_box_at(surface, core.seat.pointer.x, core.seat.pointer.y);
-}
-
-static struct box
-drag_icon_box_at(double x, double y)
-{
-	struct surface *drag_icon = pointer_drag_icon_surface();
-	return drag_icon ? surface_box_at(drag_icon, x, y) : (struct box){0};
+	return cursor_surface_box_at(core.seat.pointer.x, core.seat.pointer.y);
 }
 
 // Where the cursor is shown with the pointer at the point.
 static struct box
 cursor_extent_at(double x, double y)
 {
-	struct surface *surface = pointer_client_cursor_surface();
-	if (surface) {
-		return surface_box_at(surface, x, y);
+	if (pointer_client_cursor_surface()) {
+		return cursor_surface_box_at(x, y);
 	}
 	enum wp_cursor_shape_device_v1_shape shape = pointer_cursor_shape();
 	if (!shape) {
@@ -136,13 +116,11 @@ cursor_extent_at(double x, double y)
 	return extent;
 }
 
-// The cursor or the drag icon is shown or hidden, or has changed.
+// The cursor is shown or hidden, or has changed.
 static void
 pointer_damage_cursor(void)
 {
 	struct pointer *pointer = &core.seat.pointer;
-	struct box drag_icon = drag_icon_box_at(pointer->x, pointer->y);
-	damage_layout_box(&drag_icon);
 	struct box cursor = cursor_extent_at(pointer->x, pointer->y);
 	damage_cursor(&cursor, false);
 }
@@ -178,16 +156,30 @@ pointer_cursor_shape_for_resize_edges(uint32_t edges)
 	return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_DEFAULT;
 }
 
+// The drag icon is placed at the pointer by its hotspot, and moved by the
+// offsets committed to it.
 static void
-damage_cursor_move(double old_x, double old_y)
+place_drag_icon(void)
+{
+	struct surface *icon = drag_icon();
+	if (!icon) {
+		return;
+	}
+	struct pointer *pointer = &core.seat.pointer;
+	scene_node_set_position(&icon->scene.tree.node,
+		(int)pointer->x - pointer->grab.drag.icon_hotspot_x + icon->offset_x,
+		(int)pointer->y - pointer->grab.drag.icon_hotspot_y + icon->offset_y);
+}
+
+// The cursor, the drag icon and the magnifier follow the pointer from the old
+// position.
+static void
+follow_pointer(double old_x, double old_y)
 {
 	struct pointer *pointer = &core.seat.pointer;
-	struct box old_drag_icon = drag_icon_box_at(old_x, old_y);
-	struct box new_drag_icon = drag_icon_box_at(pointer->x, pointer->y);
 	struct box old_cursor = cursor_extent_at(old_x, old_y);
 	struct box new_cursor = cursor_extent_at(pointer->x, pointer->y);
-	damage_layout_box(&old_drag_icon);
-	damage_layout_box(&new_drag_icon);
+	place_drag_icon();
 	damage_cursor(&old_cursor, true);
 	damage_cursor(&new_cursor, true);
 	damage_magnifier(old_x, old_y);
@@ -667,15 +659,17 @@ focus_grab_surface(struct surface *surface)
 	pointer_focus(surface, sx, sy);
 }
 
-// Walks the enabled scene layers from the top. The windows are walked in
-// core.windows, which is stacked like their scene layer. X11 drags skip
-// override-redirect X11 windows, as their sources look past their drag icons.
+// Walks the enabled scene layers from the top, past the drag icon, which is
+// always under the pointer. The windows are walked in core.windows, which is
+// stacked like their scene layer. X11 drags skip override-redirect X11 windows,
+// as their sources look past their drag icons.
 struct input_target
 input_target_at(double x, double y, bool skip_unmanaged)
 {
 	struct input_target target = {0};
 	for (int layer = NR_SCENE_LAYERS - 1; layer >= 0; layer--) {
 		if (!core.scene.layers[layer].node.enabled
+				|| layer == SCENE_LAYER_DRAG_ICON
 				|| (layer == SCENE_LAYER_UNMANAGED && skip_unmanaged)) {
 			continue;
 		}
@@ -958,8 +952,6 @@ static void
 end_grab(bool cancelled)
 {
 	struct pointer_grab grab = core.seat.pointer.grab;
-	// The drag icon goes away.
-	pointer_damage_cursor();
 	core.seat.pointer.grab = (struct pointer_grab){0};
 	switch (grab.type) {
 	case POINTER_GRAB_NONE:
@@ -1015,7 +1007,7 @@ pointer_warp(double x, double y)
 	core.seat.pointer.x = x;
 	core.seat.pointer.y = y;
 	constrain_pointer();
-	damage_cursor_move(old_x, old_y);
+	follow_pointer(old_x, old_y);
 }
 
 // A tablet tool moves the pointer while it gives its events to a surface, or
@@ -1159,9 +1151,12 @@ pointer_start_drag(struct surface *origin, uint32_t serial,
 		icon->role = SURFACE_ROLE_DND_ICON;
 		core.seat.pointer.grab.drag.icon_hotspot_x = icon->offset_x;
 		core.seat.pointer.grab.drag.icon_hotspot_y = icon->offset_y;
+		// It stays there, hidden, for the next drags that use it.
+		scene_node_reparent(&icon->scene.tree.node,
+			&core.scene.layers[SCENE_LAYER_DRAG_ICON]);
+		place_drag_icon();
 		surface_set_mapped(icon, icon->current.buffer);
 	}
-	pointer_damage_cursor();
 	return true;
 }
 
@@ -1344,7 +1339,7 @@ pointer_handle_motion_absolute(double x, double y, uint32_t time)
 	pointer->y = y;
 	constrain_pointer();
 	if (pointer->x != old_x || pointer->y != old_y) {
-		damage_cursor_move(old_x, old_y);
+		follow_pointer(old_x, old_y);
 	}
 	handle_grab_motion(time);
 	struct window *old_hover = pointer->hover.window;
@@ -1581,6 +1576,7 @@ pointer_surface_commit(struct surface *surface)
 {
 	bool used = surface == core.seat.pointer.cursor.surface
 		|| surface == drag_icon();
+	place_drag_icon();
 	surface_set_mapped(surface, used && surface->current.buffer);
 }
 

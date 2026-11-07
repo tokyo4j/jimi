@@ -9,8 +9,8 @@
 // Tells clients when their content updates are shown. The frames of the
 // outputs take the feedbacks of the surfaces they show, which are presented
 // at their page flips. Content updates replaced before any frame shows them
-// are discarded. The client cursor and the drag icon are drawn outside the
-// render lists, so their feedbacks wait until their next commits discard them.
+// are discarded. The client cursor is drawn outside the render lists, so its
+// feedbacks wait until its next commit discards them.
 
 // The frame on the screen of the output since the time shows the content
 // updates of the pending feedbacks. Only a surface covering the output is

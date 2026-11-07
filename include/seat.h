@@ -474,8 +474,7 @@ void pointer_set_client_cursor(struct wl_resource *resource,
 	int32_t hotspot_x, int32_t hotspot_y);
 bool cursor_shape_validate(struct wl_resource *resource, uint32_t shape);
 struct surface *pointer_client_cursor_surface(void);
-struct surface *pointer_drag_icon_surface(void);
-struct box pointer_surface_box(struct surface *surface);
+struct box pointer_cursor_surface_box(void);
 enum wp_cursor_shape_device_v1_shape pointer_cursor_shape(void);
 void pointer_surface_commit(struct surface *surface);
 void pointer_forget_surface(struct surface *surface);

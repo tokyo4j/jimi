@@ -40,6 +40,7 @@ enum scene_layer {
 	// Lock surfaces. The layers below are disabled while the session is
 	// locked.
 	SCENE_LAYER_LOCK,
+	SCENE_LAYER_DRAG_ICON, // Follows the pointer, and takes no input.
 	NR_SCENE_LAYERS,
 };
 
